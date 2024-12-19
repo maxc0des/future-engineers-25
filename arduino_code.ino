@@ -1,3 +1,4 @@
+// i looked over it and the code is not working yet with the pi, we will have to restructure it soon
 #include <Wire.h>
 
 #define address 9

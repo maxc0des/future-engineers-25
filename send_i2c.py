@@ -19,3 +19,17 @@ def send_i2c(data: list):
     except OSError as e:
         print(f"I2C Error: {e}")
         return False
+
+def encode_data(target: str, value: int):
+    if target == 'speed':
+        if value < 0:
+            value = value * -1
+            value = str(value).zfill(3)
+            out = "3" + str(value)
+        else:
+            value = str(value).zfill(3)
+            out = "2" + str(value)
+    elif target == 'steering':
+        value = str(value).zfill(3)
+        out = "1" + str(value)
+    return out

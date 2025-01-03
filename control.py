@@ -2,18 +2,18 @@
 import pygame
 from send_i2c import send_i2c, encode_data
 import pandas as pd
-from datetime import date
 import time
+from datetime import datetime
 from get_data import take_photo, get_gyro, get_tof
 
 data_buffer = []
-last_saved = 0
+last_data_save = 0
+last_df_save = 0
 
-def collect_data():
+def collect_data(velocity, steering):
     photo = take_photo()
     gyro = get_gyro()
     tof = get_tof()
-    velocity, steering = get_input()
     data_buffer.append([photo, gyro, *tof, steering, velocity])
 
 def get_input(): #get the controler inputs and convert it into commands for the motors
@@ -28,6 +28,11 @@ def process_input(velocity, steering): #send data to the arduino
     send_i2c(velocity)
     send_i2c(steering)
 
+def save_data(df, data): # DataFrame als Parameter übergeben
+    new_df = pd.DataFrame(data=data, columns=df.columns)
+    data.clear()
+    return pd.concat([df, new_df], ignore_index=True)
+
 # Initialisierung von pygame und der Joystick-Modul
 pygame.init()
 pygame.joystick.init()
@@ -41,18 +46,28 @@ joystick.init()
 
 print("Controller verbunden:", joystick.get_name())
 
+# Dataframe erstellen
+df = pd.DataFrame(columns=['cam_path', 'gyro_angle', 'tof_1', 'tof_2', 'tof_3', 'steering_angle', 'velocity'])
+
 while True:
     try:
         velocity, steering = get_input()
         process_input(velocity, steering)
-        if time.time() * 1000 > last_saved + 1000:
-            collect_data()
-            last_saved = time.time()* 1000
+        current_time = time.time() * 1000
+        if  current_time > last_data_save + 1000: #get the data once every second
+            collect_data(velocity, steering)
+            last_data_save = current_time
+        if current_time > last_df_save + 20000:
+            df = save_data(df=df, data=data_buffer)
+            last_df_save = current_time
     except KeyboardInterrupt:
         pygame.quit()
+        if data_buffer:
+            df = save_data(df=df, data=data_buffer)
         print("stopped the recording, saving the data now")
-        df = pd.DataFrame(data_buffer, columns=['cam_path', 'gyro_angle', 'tof_1', 'tof_2', 'tof_3', 'steering_angle', 'velocity'])
-        filename = f'data_{date.today()}.csv'
-        df.to_csv(filename, index=False)
+        now = datetime.now() #getting the time to add a time stamp to the file name
+        time_stamp = now.strftime("%d-%H-%M-%S")
+        filename = f'data_{time_stamp}.csv'
+        df.to_csv(filename, index=False) #saving the df as csv file
         print("the data is now saved, exiting the program")
         break

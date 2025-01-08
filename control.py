@@ -4,7 +4,7 @@ from send_i2c import send_i2c, encode_data
 import pandas as pd
 import time
 from datetime import datetime
-from get_data import take_photo, get_gyro, get_tof
+from get_data import get_tof, get_gyro, take_photo, cleanup
 
 data_buffer = []
 last_data_save = 0
@@ -47,7 +47,7 @@ joystick.init()
 print("Controller verbunden:", joystick.get_name())
 
 # Dataframe erstellen
-df = pd.DataFrame(columns=['cam_path', 'gyro_angle', 'tof_1', 'tof_2', 'tof_3', 'steering_angle', 'velocity'])
+df = pd.DataFrame(columns=['cam_path', 'gyro_angle', 'tof_1', 'tof_2', 'steering_angle', 'velocity'])
 
 while True:
     try:
@@ -71,3 +71,5 @@ while True:
         df.to_csv(filename, index=False) #saving the df as csv file
         print("the data is now saved, exiting the program")
         break
+    finally:
+        cleanup()

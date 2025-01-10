@@ -13,6 +13,8 @@ data_filters = [["steering", 80, ">"]]
 
 picture_adjustments = [["brightness", 23, 10]]  # feature, value < 255 (max), iterations
 
+validation = 5
+
 #===================================
 
 def filter_data(feature: str, value: int, comparison: chr, df: pd.DataFrame):
@@ -36,12 +38,12 @@ def adjust_picture(feature: str, value: int, img_path: str):
         else:
             value = value * -1
             image = cv2.subtract(image, value)
-        filename = img_path + "_adjusted"
+        filename = "adjusted_" + img_path
         cv2.imwrite(filename, image)
         return filename
     else:
         raise ValueError("Feature not recognized for adjustment.")
-        
+     
 if __name__ == "__main__":
     input("make sure to backup the df before running this")
     df = pd.read_csv(data_path)
@@ -59,5 +61,9 @@ if __name__ == "__main__":
             new_img_path = adjust_picture(feature, value, img_path)
             new_row = pd.DataFrame({'cam_path': [new_img_path]})
             df = pd.concat([df, new_row], ignore_index=True)
-    df.to_csv(target_path, index=False)
+    df = df.sample(frac=1).reset_index(drop=True)
+    validation_df = df.iloc[::validation].reset_index(drop=True)
+    train_df = df.drop(validation_df.index).reset_index(drop=True)
+    validation_df.to_csv("_val" + target_path, index=False)
+    train_df.to_csv("train_" + target_path, index=False)
     print(f"Data has been saved to {target_path}.")

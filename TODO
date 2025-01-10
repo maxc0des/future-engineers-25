@@ -1,5 +1,7 @@
-- merge save data and control
--fix control script
-Jedes x-te Element aus dem df -> validation
+-Jedes x-te Element aus dem df -> validation
 validation
-Jedes y-te Element aus dem df -> test
+-Jedes y-te Element aus dem df -> test
+-Arduino Code zum umsetzen der Anweisungen
+-Gyro Sensor zum laufen bringen
+-Neuronales Netzwerk implimentieren
+-Code zum Befragen und umsetzen des neuronalen Neuronales

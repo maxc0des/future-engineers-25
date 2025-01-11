@@ -1,6 +1,3 @@
--Jedes x-te Element aus dem df -> validation
-validation
--Jedes y-te Element aus dem df -> test
 -Arduino Code zum umsetzen der Anweisungen
 -Gyro Sensor zum laufen bringen
 -Neuronales Netzwerk implimentieren

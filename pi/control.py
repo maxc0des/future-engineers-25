@@ -1,10 +1,10 @@
 #this script handels the input of a controler to control the robot remotly
 import pygame
-from send_i2c import send_i2c, encode_data
 import pandas as pd
 import time
 from datetime import datetime
-from get_data import get_tof, get_gyro, take_photo, cleanup
+from get_data import get_tof, get_gyro, take_photo
+from motor import *
 
 data_buffer = []
 last_data_save = 0
@@ -12,21 +12,19 @@ last_df_save = 0
 
 def collect_data(velocity, steering):
     photo = take_photo()
-    gyro = get_gyro()
+    #gyro = get_gyro()
     tof = get_tof()
-    data_buffer.append([photo, gyro, *tof, steering, velocity])
+    data_buffer.append([photo, *tof, steering, velocity])
 
 def get_input(): #get the controler inputs and convert it into commands for the motors
     pygame.event.pump()
-    velocity = joystick.get_axis(1) * 255 #the left stick controles the speed / we multiply by 255 because the controler returns values -1 - 1 and the motor takes values -255 - 255
-    steering = (joystick.get_axis(2) * 30) + 50 #the right stick controles the steering / we multiply by 30 and add 50 because controler returns values -1 - 1 and the motor takes values 20 - 80
+    velocity = joystick.get_axis(1) * 255 #the left stick controles the speed / we multiply by 255 because the controler returns values -1 <-> 1 and the motor takes values -255 - 255
+    steering = (joystick.get_axis(2) * 30) + 50 #the right stick controles the steering / we multiply by 30 and add 50 because controler returns values -1 <-> 1 and the motor takes values 20 - 80
     return velocity, steering
 
-def process_input(velocity, steering): #send data to the arduino 
-    velocity = encode_data("speed", velocity)
-    steering = encode_data("steering", steering)
-    send_i2c(velocity)
-    send_i2c(steering)
+def process_input(velocity, steering):
+    motor(velocity)
+    servo(steering)
 
 def save_data(df, data): # DataFrame als Parameter übergeben
     new_df = pd.DataFrame(data=data, columns=df.columns)
@@ -47,7 +45,9 @@ joystick.init()
 print("Controller verbunden:", joystick.get_name())
 
 # Dataframe erstellen
-df = pd.DataFrame(columns=['cam_path', 'gyro_angle', 'tof_1', 'tof_2', 'steering_angle', 'velocity'])
+df = pd.DataFrame(columns=['cam_path', 'tof_1', 'tof_2', 'steering_angle', 'velocity'])
+
+setup()
 
 while True:
     try:

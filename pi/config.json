@@ -1,10 +1,6 @@
 {
-    "motor":[
-        {
-        "servo": "13",
-        "motor-speed": "19",
-        "motor1":"5",
-        "motor2":"6"
-        }
-    ]
+    "servo": "13",
+    "motor-speed": "19",
+    "motor1":"5",
+    "motor2":"6"
 }

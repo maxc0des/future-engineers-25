@@ -9,7 +9,7 @@ xshut0 = 17
 xshut1 = 27
 
 #set up the i2c and gpio
-pi = pigpio.pi()
+pi = gpio.pi()
 i2c = busio.I2C(board.SCL, board.SDA)
 
 # VL53L0X-Sensoren initialisieren

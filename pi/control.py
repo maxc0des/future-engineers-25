@@ -9,6 +9,7 @@ from motor import *
 data_buffer = []
 last_data_save = 0
 last_df_save = 0
+filepath = "/media/robotics/Datenträger 8,1 GB/data"
 
 def collect_data(velocity, steering):
     photo = take_photo()
@@ -67,7 +68,7 @@ while True:
         print("stopped the recording, saving the data now")
         now = datetime.now() #getting the time to add a time stamp to the file name
         time_stamp = now.strftime("%d-%H-%M-%S")
-        filename = f'data_{time_stamp}.csv'
+        filename = f'{filepath}data_{time_stamp}.csv'
         df.to_csv(filename, index=False) #saving the df as csv file
         print("the data is now saved, exiting the program")
         break

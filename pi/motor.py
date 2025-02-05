@@ -23,7 +23,6 @@ def servo(angle: int):
     pi.set_servo_pulsewidth(servo_pin, pulse_width)
 
 def motor(speed: int):
-    speed = int(speed)
     if speed < 0: #rückwärts
         pi.write(motor1, 0)
         pi.write(motor2, 1)
@@ -43,11 +42,10 @@ def setup():
     global pi
     load_var()
     pi = pigpio.pi()
-    if not pi.connected:
+    if not pi.connected or pi is None:
         print("Fehler: pigpio-Daemon läuft nicht!")
         exit(1)
     print("run setup successfull")
 
 def cleanup():
-    if pi is not None:
-        pi.stop()
+    pi.stop()

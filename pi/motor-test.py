@@ -7,6 +7,7 @@ while True:
         mode = input("choose mode (motor/servo)")
         if mode == "motor":
             speed = int(input("choose speed (-255 - 255)"))
+            print(type(speed))
             motor(speed)
             print("successfully set", mode, "to ", speed)
         elif mode == "servo":

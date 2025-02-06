@@ -28,8 +28,7 @@ def get_input(): #get the controler inputs and convert it into commands for the 
     return velocity, steering
 
 def process_input(velocity, steering):
-    motor(velocity)
-    servo(steering)
+    print("velocity: ", velocity)
 
 def save_data(df, data): # DataFrame als Parameter übergeben
     new_df = pd.DataFrame(data=data, columns=df.columns)
@@ -57,7 +56,8 @@ setup()
 while True:
     try:
         velocity, steering = get_input()
-        process_input(velocity, steering)
+        motor(velocity)
+        servo(steering)
         current_time = time.time() * 1000
         if  current_time > last_data_save + 1000: #get the data once every second
             collect_data(velocity, steering)

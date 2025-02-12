@@ -13,16 +13,12 @@ def load_var():
     with open("config.json", "r") as file:
         data = json.load(file)
 
-    servo_pin = data["servo"]
-    motor_speed = data["motor-speed"]
-    motor1 = data["motor1"]
-    motor2 = data["motor2"]
+    servo_pin = int(data["servo"])
+    motor_speed = int(data["motor-speed"])
+    motor1 = int(data["motor1"])
+    motor2 = int(data["motor2"])
 
 def servo(angle: int):
-    if pi is None:
-        print("Fehler: `pi` wurde nicht initialisiert. Rufe `setup()` zuerst auf!")
-        return
-    
     pulse_width = 500 + (angle / 180.0) * 2000
     pi.set_servo_pulsewidth(servo_pin, pulse_width)
 
@@ -34,10 +30,9 @@ def motor(speed: int):
     elif speed == 0: #null
         pi.write(motor1, 0)
         pi.write(motor2, 0)
-    elif speed == 1: #vorwärts
+    elif speed > 0: #vorwärts
         pi.write(motor1, 1)
         pi.write(motor2, 0)
-
 
     pi.set_PWM_dutycycle(motor_speed, speed)
 
@@ -47,6 +42,10 @@ def setup():
     global pi
     load_var()
     pi = pigpio.pi()
+    if not pi.connected or pi is None:
+        print("Fehler: pigpio-Daemon läuft nicht!")
+        exit(1)
+    print("run setup successfull")
 
 def cleanup():
     pi.stop()

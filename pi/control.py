@@ -49,7 +49,7 @@ controller.init()
 print("Controller verbunden:", controller.get_name())
 
 # Dataframe erstellen
-df = pd.DataFrame(columns=['cam_path', 'tof_1', 'tof_2', 'steering_angle', 'velocity'])
+df = pd.DataFrame(columns=['cam_path', 'tof1', 'tof2', 'steering', 'velocity'])
 
 setup()
 

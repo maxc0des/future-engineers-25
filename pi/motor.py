@@ -13,14 +13,15 @@ def load_var():
     with open("config.json", "r") as file:
         data = json.load(file)
 
-    servo_pin = int(data["servo"])
-    motor_speed = int(data["motor-speed"])
-    motor1 = int(data["motor1"])
-    motor2 = int(data["motor2"])
+    servo_pin = int(data["motor"]["servo"])
+    motor_speed = int(data["motor"]["motor-speed"])
+    motor1 = int(data["motor"]["motor1"])
+    motor2 = int(data["motor"]["motor2"])
 
 def servo(angle: int):
     pulse_width = 500 + (angle / 180.0) * 2000
     pi.set_servo_pulsewidth(servo_pin, pulse_width)
+    print("pulse_width: ", pulse_width)
 
 def motor(speed: int):
     if speed < 0: #rückwärts

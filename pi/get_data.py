@@ -3,10 +3,13 @@ import board
 import busio
 import adafruit_vl53l0x
 import pigpio as gpio
+import time
+from picamera2 import Picamera2
+import json
 
 #define the pins
-xshut0 = 17
-xshut1 = 27
+xshut0 = 0
+xshut1 = 0
 
 #set up the i2c and gpio
 pi = gpio.pi()
@@ -14,6 +17,11 @@ i2c = busio.I2C(board.SCL, board.SDA)
 
 # VL53L0X-Sensoren initialisieren
 def initialize_sensors():
+    global xshut0, xshut1
+    with open("config.json", "r") as file:
+        data = json.load(file)
+    xshut0 = int(data["sensor"]["xshut0"])
+    xshut1 = int(data["sensor"]["xshut1"])
     #check if libary is running
     if not pi.connected:
         print("Fehler: pigpio-Daemon läuft nicht!")
@@ -30,25 +38,29 @@ def initialize_sensors():
     time.sleep(0.1)
     sensor2 = adafruit_vl53l0x.VL53L0X(i2c)
     sensor2.set_address(0x31)
+    picam = Picamera2()
+    config = picam.create_still_configuration()
+    picam.configure(config)
+    picam.start()
+    time.sleep(5)
 
-    return sensor1, sensor2
+    return sensor1, sensor2, picam
 
 #initialize sensors
-tof_sensor1, tof_sensor2 = initialize_sensors()
+tof_sensor1, tof_sensor2, picam = initialize_sensors()
 
 #get the distances
 def get_tof():
-    print("Getting the ToF data")
     sensor_data = {
         tof_sensor1.range, tof_sensor2.range
     }
     return sensor_data
 
 #take the photo and return the path
-def take_photo():
-    print("Taking a photo")
-    # Simuliere das Aufnehmen eines Fotos
-    return "/path/to/photo.jpg"
+def take_photo(index: int):
+    filepath = f"cam-{index}.jpg"
+    picam.capture_file(filepath)
+    return filepath
 
 #get the gyro data
 def get_gyro():

@@ -5,13 +5,13 @@ import random
 
 #================================
 # Change the parameters here:
-data_path = "sample_data.csv"
-target_path = "samples"
+data_path = "train-data02-19-02-50.csv"
+target_path = "adjusted"
 
-data_filters = [["steering", 80, "<"]]
-picture_adjustments = [["brightness", 200, 10]]  # feature, value < 255 (max), iterations
+data_filters = []#["steering", 80, "<"]
+picture_adjustments = [["brightness", 100, 10]]  # feature, value < 255 (max), iterations
 validation = 5
-test = 10
+#test = 0
 #===================================
 
 def filter_data(feature: str, value: int, comparison: str, df: pd.DataFrame) -> pd.DataFrame:
@@ -51,7 +51,9 @@ if __name__ == "__main__":
     if not os.path.exists(target_path):
         os.makedirs(target_path)
     df = pd.read_csv(data_path)
+    df.columns = df.columns.str.strip()  # Strip whitespace from column names
     print(f"Loaded data with {df.shape[0]} rows.")
+    print(f"Data columns: {df.columns.tolist()}")
     for feature, value, comparison in data_filters:
         if feature not in df.columns:
             raise KeyError(f"Feature {feature} not found in DataFrame.")
@@ -64,6 +66,7 @@ if __name__ == "__main__":
             random_index = random.randint(0, len(df) - 1)
             original_row = df.iloc[random_index].copy()
             img_path = original_row['cam_path']
+            print(f"Adjusting picture at {img_path}")
             new_img_path = adjust_picture(feature, random.randint(-value, value), img_path)
             new_row = original_row.copy()
             new_row['cam_path'] = new_img_path
@@ -71,12 +74,12 @@ if __name__ == "__main__":
     print("Finished adjusting pictures.")
     df = df.sample(frac=1).reset_index(drop=True)
     validation_df = df.iloc[::validation].reset_index(drop=True)
-    test_df = df.iloc[::test].reset_index(drop=True)
+    #test_df = df.iloc[::test].reset_index(drop=True)
     train_df = df.drop(validation_df.index).reset_index(drop=True)
     val_path = os.path.join(target_path, "validation_data.csv")
     train_path = os.path.join(target_path, "train_data.csv")
     test_path = os.path.join(target_path, "test_data.csv")
     validation_df.to_csv(val_path, index=False)
-    test_df.to_csv(test_path, index=False)
+    #test_df.to_csv(test_path, index=False)
     train_df.to_csv(train_path, index=False)
     print(f"Data has been saved to {target_path}.")

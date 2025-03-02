@@ -6,6 +6,7 @@ import pigpio as gpio
 import time
 from picamera2 import Picamera2
 import json
+import os
 
 #define the pins
 xshut0 = 0
@@ -57,10 +58,11 @@ def get_tof():
     return sensor_data
 
 #take the photo and return the path
-def take_photo(index: int):
-    filepath = f"cam-{index}.jpg"
-    picam.capture_file(filepath)
-    return filepath
+def take_photo(filepath: str, index: int):
+    photo_path = os.path.join(filepath, f"cam-{index}.jpg")
+    picam.capture_file(photo_path)
+    relative_path = os.path.relpath(photo_path, start=filepath)
+    return relative_path
 
 #get the gyro data
 def get_gyro():

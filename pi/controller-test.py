@@ -27,7 +27,7 @@ while True:
         pygame.event.pump()
         velocity = int(controller.get_axis(1) * 230 * -1) #the left stick controles the speed / we multiply by 255 because the controler returns values -1 <-> 1 and the motor takes values -255 - 255
         steering = int((controller.get_axis(3) * 30) + 50) #the right stick controles the steering / we multiply by 30 and add 50 because controler returns values -1 <-> 1 and the motor takes values 20 - 80
-        button = controller.get_button(1)
+        button = controller.get_button(2)
         print("steering: ", steering )
         print("velocity: ", velocity )
         print("button: ", button)

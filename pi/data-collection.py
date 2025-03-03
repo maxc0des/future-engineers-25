@@ -1,4 +1,4 @@
-import pygame
+import pygame # type: ignore
 import time
 from motor import *
 import pandas as pd
@@ -11,6 +11,7 @@ last_data_save = 0
 last_df_save = 0
 filepath = ""
 data_saves = 0
+record = False
 
 def get_input(): #get the controler inputs and convert it into commands for the motors
     print("")
@@ -38,36 +39,34 @@ setup()
 df = pd.DataFrame(columns=['cam_path', 'tof_1', 'tof_2', 'steering_angle', 'velocity'])
 time.sleep(1)
 print("recording is ready, press o to start")
-while True:
-    pygame.event.pump()
-    if controller.get_button(1):
-        break
-print("recording started")
 
 while True:
     try:
         pygame.event.pump()
         if controller.get_button(0):
             break
-        velocity = int(controller.get_axis(1) * 240 * -1) #the left stick controles the speed / we multiply by 255 because the controler returns values -1 <-> 1 and the motor takes values -255 - 255
-        steering = int((controller.get_axis(3) * 30) + 50) #the right stick controles the steering / we multiply by 30 and add 50 because controler returns values -1 <-> 1 and the motor takes values 20 - 80
-        print("steering: ", steering )
-        print("velocity: ", velocity )
-        if velocity < 10 and velocity > -10: #threashold to conter stick drift
-            velocity = 0
-        motor(velocity)
-        servo(steering)
-        if time.time() - last_data_save >= 0.3:
-            collect_data(velocity, steering)
-            last_data_save = time.time()
-            data_saves += 1
-        if time.time() - last_df_save >= 20:
-            print("Saving data")
-            new_df = pd.DataFrame(data=data_buffer, columns=df.columns)
-            data_buffer.clear()
-            df = pd.concat([df, new_df], ignore_index=True)
-            last_df_save = time.time()
-        time.sleep(0.1)
+        if controller.get_button(1):
+            record = not record
+            print("recording: ", record)
+        if record:
+            velocity = int(controller.get_axis(1) * 230 * -1) #the left stick controles the speed / we multiply by 255 because the controler returns values -1 <-> 1 and the motor takes values -255 - 255
+            steering = int((controller.get_axis(3) * 30) + 50) #the right stick controles the steering / we multiply by 30 and add 50 because controler returns values -1 <-> 1 and the motor takes values 20 - 80
+            print("steering: ", steering )
+            print("velocity: ", velocity )
+            if velocity < 10 and velocity > -10: #threashold to conter stick drift
+                velocity = 0
+            motor(velocity)
+            servo(steering)
+            if time.time() - last_data_save >= 0.3:
+                collect_data(velocity, steering)
+                last_data_save = time.time()
+                data_saves += 1
+            if time.time() - last_df_save >= 20:
+                print("Saving data")
+                new_df = pd.DataFrame(data=data_buffer, columns=df.columns)
+                data_buffer.clear()
+                df = pd.concat([df, new_df], ignore_index=True)
+                last_df_save = time.time()
     except KeyboardInterrupt:
         
         break

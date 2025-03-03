@@ -21,7 +21,6 @@ def load_var():
 def servo(angle: int):
     pulse_width = 500 + (angle / 180.0) * 2000
     pi.set_servo_pulsewidth(servo_pin, pulse_width)
-    print("pulse_width: ", pulse_width)
 
 def motor(speed: int):
     if speed < 0: #rückwärts

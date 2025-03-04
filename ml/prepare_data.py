@@ -6,11 +6,11 @@ from tqdm import tqdm
 
 #================================
 # Change the parameters here:
-data_path = "train-data02-19-02-50.csv"
+data_path = "train-data04-14-18-44.csv"
 target_path = "csv"
 
 data_filters = []#["steering", 80, "<"]
-picture_adjustments = [["brightness", 100, 10]]  # feature, value < 255 (max), iterations
+picture_adjustments = []  # feature, value < 255 (max), iterations
 validation = 5
 #test = 0
 #===================================
@@ -28,9 +28,15 @@ def filter_data(feature: str, value: int, comparison: str, df: pd.DataFrame) -> 
         raise ValueError("Comparison not recognized")
     return df
 
+def remove_nan(df: pd.DataFrame, path: str, index: int) -> pd.DataFrame:
+    if not os.path.exists(path):
+        return index
+    return None
+
+    
 def adjust_picture(feature: str, value: int, img_path: str) -> str:
     if not os.path.exists(img_path):
-        raise FileNotFoundError(f"Image path {img_path} does not exist.")
+        return None
     image = cv2.imread(img_path)
     if feature == "brightness":
         adjustment = value if value >= 0 else -value
@@ -81,10 +87,14 @@ if __name__ == "__main__":
             df = pd.concat([df, new_row.to_frame().T], ignore_index=True)
     print("Finished adjusting pictures.")
     rows = len(df) - 1
-    for i in tqdm(range(rows), desc='Converting to CSV'):
-        original_row = df.iloc[i].copy()
-        img_path = original_row['cam_path']
-        adjust_picture("yuv", 0, img_path)
+    nan_rows = []
+    for i in tqdm(range(rows), desc='Converting to YUV and removing NaN rows'):
+        row = df.iloc[i].copy()
+        img_path = row['cam_path']
+        #adjust_picture("yuv", 0, img_path)
+        if remove_nan(df=df, path=img_path, index=i) is not None:
+            nan_rows.append(i)
+    df = df.drop(nan_rows).reset_index(drop=True)
     print("Finished adjusting pictures.")
     df = df.sample(frac=1).reset_index(drop=True)
     validation_df = df.iloc[::validation].reset_index(drop=True)

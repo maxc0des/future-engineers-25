@@ -7,16 +7,22 @@ import torchvision.transforms as transforms
 import random
 import matplotlib.pyplot as plt
 import numpy as np
+import json
 
 # Configuration:
-learning_rate = 1e-3
-batch_size = 64
-max_epochs = 200
-min_epochs = 20
-patience = 10
+print("loading the config now")
+with open("config_nn.json", "r") as f:
+    config = json.load(f)
+    learning_rate = float(config["config"]["learning_rate"])
+    batch_size = config["config"]["batch_size"]
+    max_epochs = config["config"]["max_epochs"]
+    min_epochs = config["config"]["min_epochs"]
+    patience = config["config"]["patience"]
+    window_size = config["config"]["window_size"]
+
 loss_plt = []
 test_plt = []
-counter = 0  # Initialisierung
+patience_counter = 0
 
 class Data(Dataset):
     def __init__(self, csv_file, root_dir, transform=None):
@@ -63,6 +69,8 @@ class ImageNN(nn.Module):
             nn.Dropout(0.2),
             nn.Linear(512, 512),
             nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.LeakyReLU(),
             nn.Dropout(0.2),
             nn.Linear(512, 128)  
         )
@@ -105,15 +113,6 @@ class FullNN(nn.Module):
         combined = torch.cat((image_features, tof_features), dim=1)
         return self.linear_relu_stack(combined)
 
-train_dataset = Data(csv_file="train_data.csv", root_dir="images", transform=transform)
-val_dataset = Data(csv_file="validation_data.csv", root_dir="images", transform=transform)
-train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-
-model = FullNN()
-loss_fn = nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
-
 def train_loop(dataloader, model, loss_fn, optimizer):
     model.train()
     for batch, (images, tofs, labels) in enumerate(dataloader):
@@ -141,6 +140,31 @@ def test_loop(dataloader, model, loss_fn):
     print(f"Test Error: Avg MSE Loss: {avg_loss:>8f}")
     test_plt.append(avg_loss)
 
+def earlystop(values):
+    global patience_counter; global window_size
+    if len(test_plt)>min_epochs:
+        test_plt[-4]
+        derivatives = np.diff(values[-window_size:])
+        print(derivatives)
+        print(np.mean(derivatives))
+        if np.mean(derivatives)>0:
+            patience_counter += 1
+        if patience_counter > patience:
+            return True
+    patience_counter = 0
+    return False
+
+
+train_dataset = Data(csv_file="train_data.csv", root_dir="images", transform=transform)
+val_dataset = Data(csv_file="validation_data.csv", root_dir="images", transform=transform)
+train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+model = FullNN()
+loss_fn = nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+
+#execution starts here:
 e = 0
 best_loss = float('inf')
 plt.ion()
@@ -153,12 +177,6 @@ while True:
     train_loop(train_dataloader, model, loss_fn, optimizer)
     test_loop(val_dataloader, model, loss_fn)
     
-    if test_plt[-1] < best_loss:
-        best_loss = test_plt[-1]
-        counter = 0
-    else:
-        counter += 1
-    
     line1.set_xdata(range(len(loss_plt)))
     line1.set_ydata(loss_plt)
     line2.set_xdata(range(len(test_plt)))
@@ -167,14 +185,17 @@ while True:
     ax.set_xlim(0, max(len(loss_plt), len(test_plt)))
     ax.set_ylim(min(min(loss_plt, default=0), min(test_plt, default=0)), 
                 max(max(loss_plt, default=1), max(test_plt, default=1)))
-
     ax.relim()
     ax.autoscale_view()
     plt.draw()
     plt.pause(0.1)
 
-    if counter == patience and e > min_epochs or e == max_epochs:
-        print("Training beendet (Modell verbessert sich nicht mehr / max_epochs erreicht)!")
+    if earlystop(test_plt):
+        print("earlystopping")
+        break
+
+    if e == max_epochs:
+        print("reached max epochs")
         break
 
     e += 1
@@ -183,20 +204,27 @@ plt.ioff()
 
 
 model.eval()
-sample_idx = random.randint(0, len(val_dataset) - 1)
-image, tof, label = val_dataset[sample_idx]
-image = image.unsqueeze(0)
-tof = tof.unsqueeze(0)
+right_predictions = 0
+for i in range(10):
+    sample_idx = random.randint(0, len(val_dataset) - 1)
+    image, tof, label = val_dataset[sample_idx]
+    image = image.unsqueeze(0)
+    tof = tof.unsqueeze(0)
 
-with torch.no_grad():
-    prediction = model(image, tof)
+    with torch.no_grad():
+        prediction = model(image, tof)
 
-predicted_steering, predicted_velocity = prediction.squeeze().tolist()
-true_steering, true_velocity = label.tolist()
+    predicted_steering, predicted_velocity = prediction.squeeze().tolist()
+    true_steering, true_velocity = label.tolist()
 
-print(f"📷 Sample {sample_idx}:")
-print(f"🔹 Wahre Werte: Steering Angle = {true_steering:.2f}, Velocity = {true_velocity:.2f}")
-print(f"🔮 Vorhersage:  Steering Angle = {predicted_steering:.2f}, Velocity = {predicted_velocity:.2f}")
+    if true_steering - 5 < predicted_steering < true_steering + 5 and true_velocity - 5 < predicted_velocity < true_velocity + 5:
+        right_predictions+= 1
+
+    print(f"📷 Sample {sample_idx}:")
+    print(f"🔹 Wahre Werte: Steering Angle = {true_steering:.2f}, Velocity = {true_velocity:.2f}")
+    print(f"🔮 Vorhersage:  Steering Angle = {predicted_steering:.2f}, Velocity = {predicted_velocity:.2f}")
+
+print("right predictions: ", right_predictions, "/10")
 
 if input("Modell speichern? (y/n) ").lower() in ["y", "yes"]:
     torch.save(model.state_dict(), "model.pth")

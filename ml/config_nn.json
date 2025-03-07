@@ -1,0 +1,11 @@
+{
+    "config":{
+        "learning_rate":1e-3,
+        "batch_size":64,
+        "min_epochs":5,
+        "max_epochs":200,
+        "patience": 10,
+        "window_size": 5 ,
+        "important":"window_size has to be < min_epochs"
+    }
+}

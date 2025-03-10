@@ -61,8 +61,6 @@ def get_tof():
 def take_photo(filepath: str, index: int):
     photo_path = os.path.join(filepath, f"cam-{index}.jpg")
     picam.capture_file(photo_path)
-    relative_path = os.path.relpath(photo_path, start=filepath)
-    return relative_path
 
 #get the gyro data
 def get_gyro():

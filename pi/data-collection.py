@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime
 from get_data import get_tof, take_photo
 import os
+import threading
 
 data_buffer = []
 last_data_save = 0
@@ -13,12 +14,19 @@ filepath = ""
 data_saves = 0
 record = False
 
+def take_photo_async(filepath, data_saves):
+    thread = threading.Thread(target=take_photo, args=(filepath, data_saves))
+    thread.daemon = True
+    thread.start()
+
 def get_input(): #get the controler inputs and convert it into commands for the motors
     print("")
 
 def collect_data(velocity, steering):
     #gyro = get_gyro() #might add a gyro later
-    photo = take_photo(filepath, data_saves)
+    take_photo_async(filepath, data_saves)
+    full_path = os.path.join(filepath, f"cam-{data_saves}.jpg")
+    photo = os.path.relpath(full_path, start=filepath)
     tof = get_tof()
     data_buffer.append([photo, *tof, steering, velocity])
 
@@ -52,7 +60,7 @@ while True:
             record = False
             print("recording paused")
         if record:
-            velocity = int(controller.get_axis(1) * 255 * -1) #the left stick controles the speed / we multiply by 255 because the controler returns values -1 <-> 1 and the motor takes values -255 - 255
+            velocity = int(controller.get_axis(1) * 210 * -1) #the left stick controles the speed / we multiply by 255 because the controler returns values -1 <-> 1 and the motor takes values -255 - 255
             steering = int((controller.get_axis(3) * 30) + 50) #the right stick controles the steering / we multiply by 30 and add 50 because controler returns values -1 <-> 1 and the motor takes values 20 - 80
             #print("steering: ", steering )
             #print("velocity: ", velocity )

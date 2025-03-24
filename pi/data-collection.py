@@ -27,7 +27,10 @@ def collect_data(velocity, steering):
     take_photo_async(filepath, data_saves)
     full_path = os.path.join(filepath, f"cam-{data_saves}.jpg")
     photo = os.path.relpath(full_path, start=filepath)
-    tof = get_tof()
+    try:
+        tof = get_tof()
+    except:
+        tof=[None, None]
     data_buffer.append([photo, *tof, steering, velocity])
 
 now = datetime.now() #getting the time to add a time stamp to the file name

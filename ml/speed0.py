@@ -142,8 +142,7 @@ while True:
             x = list(range(1, e+1))
         else:
             x = list(range(e-5, e))
-            x.append(e) #im sorry
-        time.sleep(0.1)
+            x.append(e)
         # Update the plot with the last 5 values
         line1.set_xdata(x)
         line1.set_ydata(plot1)

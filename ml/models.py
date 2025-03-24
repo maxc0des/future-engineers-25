@@ -142,12 +142,32 @@ class IntegratedNN(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2)  # -> 512 x 4 x 4
         )
 
+        self.conv_block10 = nn.Sequential(
+            nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=128, out_channels=512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2)  # -> 512 x 4 x 4
+        )
+
+        self.conv_block11 = nn.Sequential(
+            nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=128, out_channels=512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2)  # -> 512 x 4 x 4
+        )
+
         # --- Adaptive Pooling, um Flatten-Größe flexibel zu halten ---
         self.adaptive_pool = nn.AdaptiveAvgPool2d((4, 4))  # -> 256 x 4 x 4
 
         # --- Fully Connected Layers ---
         self.fc_layers = nn.Sequential(
-            nn.Linear(256 * 4 * 4, 512),  # Flattened size = 256 * 4 * 4 = 4096
+            nn.Linear(512 * 4 * 4, 512),  # Flattened size = 256 * 4 * 4 = 4096
             nn.ReLU(),
             nn.Dropout(0.5),  # Regularization
             nn.LeakyReLU(),
@@ -163,6 +183,12 @@ class IntegratedNN(nn.Module):
         x = self.conv_block2(x)
         x = self.conv_block3(x)
         x = self.conv_block4(x)
+        #print(x.shape)  # Vor dem Durchlauf durch conv_block4
+        x = self.conv_block5(x)
+        x = self.conv_block6(x)
+        x = self.conv_block7(x)
+        #x = self.conv_block8(x)
+        #x = self.conv_block9(x)
 
         x = self.adaptive_pool(x)
         x = torch.flatten(x, start_dim=1)  # Flatten für FC-Schichten
@@ -194,10 +220,3 @@ class EfficientNet5Channel(nn.Module):
 
     def forward(self, x):
         return self.model(x)
-    
-class IntegratedNN_v2(nn.Module):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-    
-    def forward():
-        pass

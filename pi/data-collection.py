@@ -6,6 +6,7 @@ from datetime import datetime
 from get_data import get_tof, take_photo
 import os
 import threading
+import queue
 
 data_buffer = []
 last_data_save = 0
@@ -14,13 +15,25 @@ filepath = ""
 data_saves = 0
 record = False
 
-def take_photo_async(filepath, data_saves):
-    thread = threading.Thread(target=take_photo, args=(filepath, data_saves))
-    thread.daemon = True
-    thread.start()
+# Erstelle eine Queue für Fotoaufgaben
+photo_queue = queue.Queue()
 
-def get_input(): #get the controler inputs and convert it into commands for the motors
-    print("")
+def photo_worker():
+    while True:
+        item = photo_queue.get()
+        if item is None:
+            break  # Exit-Signal erhalten
+        photo_path, data_num = item
+        take_photo(photo_path, data_num)
+        photo_queue.task_done()
+
+# Starte den Worker-Thread als Daemon, so dass er den Hauptthread nicht blockiert
+worker_thread = threading.Thread(target=photo_worker, daemon=True)
+worker_thread.start()
+
+def take_photo_async(filepath, data_num):
+    # Lege eine Fotoaufgabe in die Queue, der Hauptthread wartet hier nicht
+    photo_queue.put((filepath, data_num))
 
 def collect_data(velocity, steering):
     #gyro = get_gyro() #might add a gyro later
@@ -86,6 +99,12 @@ while True:
         break
 motor(0)
 servo(50)
+print("Warte auf die Abarbeitung der restlichen Fotoaufgaben...")
+photo_queue.join()  # Blockiert, bis alle Tasks finished sind
+
+# Sende Stop-Signal an den Foto-Worker:
+photo_queue.put(None)
+worker_thread.join()
 if len(data_buffer) > 0:
     new_df = pd.DataFrame(data=data_buffer, columns=df.columns)
     data_buffer.clear()

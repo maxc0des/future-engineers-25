@@ -62,6 +62,11 @@ def take_photo(filepath: str, index: int):
     photo_path = os.path.join(filepath, f"cam-{index}.jpg")
     picam.capture_file(photo_path)
 
+def take_photo_fast(filepath: str, index: int):
+    array = picam.capture_array("main")
+
+    return array
+
 #get the gyro data
 def get_gyro():
     print("Getting the gyro data")

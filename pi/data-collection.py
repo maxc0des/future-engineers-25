@@ -3,10 +3,11 @@ import time
 from motor import *
 import pandas as pd
 from datetime import datetime
-from get_data import get_tof, take_photo
+from get_data import get_tof, take_photo_fast
 import os
 import threading
 import queue
+from PIL import Image
 
 data_buffer = []
 last_data_save = 0
@@ -15,42 +16,44 @@ filepath = ""
 data_saves = 0
 record = False
 
-# Erstelle eine Queue für Fotoaufgaben
 photo_queue = queue.Queue()
 
 def photo_worker():
     while True:
         item = photo_queue.get()
         if item is None:
-            break  # Exit-Signal erhalten
-        photo_path, data_num = item
-        take_photo(photo_path, data_num)
+            break  # Beenden
+        img_path, img_array = item
+        Image.fromarray(img_array).save(img_path, format="JPEG")
         photo_queue.task_done()
 
-# Starte den Worker-Thread als Daemon, so dass er den Hauptthread nicht blockiert
 worker_thread = threading.Thread(target=photo_worker, daemon=True)
 worker_thread.start()
 
-def take_photo_async(filepath, data_num):
-    # Lege eine Fotoaufgabe in die Queue, der Hauptthread wartet hier nicht
-    photo_queue.put((filepath, data_num))
-
 def collect_data(velocity, steering):
-    #gyro = get_gyro() #might add a gyro later
-    take_photo_async(filepath, data_saves)
+    global data_saves
+    
     full_path = os.path.join(filepath, f"cam-{data_saves}.jpg")
-    photo = os.path.relpath(full_path, start=filepath)
+    img_array = take_photo_fast(filepath=full_path, index=data_saves)
+    photo_queue.put((full_path, img_array))
+
+    photo_rel_path = os.path.relpath(full_path, start=filepath)
+
     try:
         tof = get_tof()
-    except:
-        tof=[None, None]
-    data_buffer.append([photo, *tof, steering, velocity])
+    except Exception as e:
+        print(f"ToF Error: {e}")
+        tof = [None, None]
 
-now = datetime.now() #getting the time to add a time stamp to the file name
+    data_buffer.append([photo_rel_path, *tof, steering, velocity])
+    data_saves += 1  # Foto-Counter hochzählen
+
+now = datetime.now()
 time_stamp = now.strftime("%d-%H-%M-%S")
-root = os.getcwd()  # Pfad des aktuell laufenden Skripts (also vom USB-Stick)
+root = os.getcwd()
 filepath = os.path.join(root, f"data-{time_stamp}")
-os.makedirs(filepath, exist_ok=True)  # Erstellt den Ordner (falls nicht vorhanden)
+os.makedirs(filepath, exist_ok=True)
+
 pygame.init()
 pygame.joystick.init()
 if pygame.joystick.get_count() == 0:
@@ -60,9 +63,10 @@ controller = pygame.joystick.Joystick(0)
 controller.init()
 print(f"Verbunden mit: {controller.get_name()}")
 setup()
+
 df = pd.DataFrame(columns=['cam_path', 'tof_1', 'tof_2', 'steering_angle', 'velocity'])
-time.sleep(1)
-print("recording is ready, press o to start")
+
+print("Recording bereit, drücke 'O' zum Starten.")
 
 while True:
     try:
@@ -71,48 +75,50 @@ while True:
             break
         if controller.get_button(1):
             record = True
-            print("recording started")
+            print("Recording gestartet")
         if controller.get_button(2):
             record = False
-            print("recording paused")
+            print("Recording pausiert")
         if record:
-            velocity = int(controller.get_axis(1) * 210 * -1) #the left stick controles the speed / we multiply by 255 because the controler returns values -1 <-> 1 and the motor takes values -255 - 255
-            steering = int((controller.get_axis(3) * 30) + 50) #the right stick controles the steering / we multiply by 30 and add 50 because controler returns values -1 <-> 1 and the motor takes values 20 - 80
-            #print("steering: ", steering )
-            #print("velocity: ", velocity )
-            if velocity < 10 and velocity > -10: #threashold to conter stick drift
-                velocity = 0
+            velocity = int(controller.get_axis(1) * 210 * -1)
+            steering = int((controller.get_axis(3) * 30) + 50)
+
+            if -10 < velocity < 10:
+                velocity = 0  # Stick-Drift fixen
+
             motor(velocity)
             servo(steering)
+
             if time.time() - last_data_save >= 0.3:
                 collect_data(velocity, steering)
                 last_data_save = time.time()
-                data_saves += 1
+
             if time.time() - last_df_save >= 20:
-                print("Saving data")
+                print("Speichere CSV-Daten...")
                 new_df = pd.DataFrame(data=data_buffer, columns=df.columns)
                 data_buffer.clear()
                 df = pd.concat([df, new_df], ignore_index=True)
                 last_df_save = time.time()
+
     except KeyboardInterrupt:
-        
         break
+
 motor(0)
 servo(50)
 print("Warte auf die Abarbeitung der restlichen Fotoaufgaben...")
-photo_queue.join()  # Blockiert, bis alle Tasks finished sind
-
-# Sende Stop-Signal an den Foto-Worker:
+photo_queue.join()
 photo_queue.put(None)
 worker_thread.join()
+
 if len(data_buffer) > 0:
     new_df = pd.DataFrame(data=data_buffer, columns=df.columns)
     data_buffer.clear()
     df = pd.concat([df, new_df], ignore_index=True)
-print("stopped the recording, saving the data now")
+
 filename = f'{filepath}/train-data{time_stamp}.csv'
-df.to_csv(filename, index=False) #saving the df as csv file
-print("the data is now saved, exiting the program")
+df.to_csv(filename, index=False)
+print("Daten gespeichert!")
 print(df.head(5))
+
 cleanup()
 pygame.quit()

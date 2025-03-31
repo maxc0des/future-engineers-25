@@ -1,5 +1,4 @@
 import torch
-import random
 import pandas as pd
 from PIL import Image
 from models import IntegratedNN
@@ -7,7 +6,7 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 import numpy as np
 
-from get_data import get_tof, take_photo
+from get_data import get_tof, take_photo_fast
 from motor import servo, motor, setup, cleanup
 
 #define the paths
@@ -33,9 +32,9 @@ setup()
 while True:
     try:
         tof = get_tof()
-        pic = take_photo()
+        img = take_photo_fast()
 
-        image = Image.open(pic) #fix this soon
+        image = Image.fromarray(img) #fix this soon
         image = transforms.Resize((128, 128))(image)
         image = transforms.ToTensor()(image)
         image = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(image)
@@ -51,3 +50,4 @@ while True:
         servo(steering)
     except KeyboardInterrupt:
         break
+cleanup()

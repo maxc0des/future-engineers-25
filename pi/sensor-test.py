@@ -10,6 +10,8 @@ while True:
             filepath = take_photo(filepath=root, index=counter)
             print(f"photo saved at {filepath}")
             counter += 1
+        elif sensor == "fast cam":
+            print(take_photo_fast())
         else:
             print("invalid input")
     except KeyboardInterrupt:

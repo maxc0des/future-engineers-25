@@ -3,8 +3,6 @@ import pandas as pd
 from PIL import Image
 from models import IntegratedNN
 from torchvision import transforms
-import matplotlib.pyplot as plt
-import numpy as np
 
 from get_data import get_tof, take_photo_fast
 from motor import servo, motor, setup, cleanup
@@ -13,10 +11,23 @@ from motor import servo, motor, setup, cleanup
 csv_path = "train_data.csv"
 model_path = "model.pth"
 
-#load the model
-model = IntegratedNN()
-model.load_state_dict(torch.load(model_path))
-model.eval()
+def status(status: str):
+    if status == "running":
+        pi.write(22, 1)
+        pi.write(27, 0)
+        pi.write(17, 0)
+    elif status == "setup":
+        pi.write(22, 0)
+        pi.write(27, 1)
+        pi.write(17, 0)
+    elif status == "error":
+        pi.write(22, 0)
+        pi.write(27, 0)
+        pi.write(17, 1)
+    else:
+        pi.write(22, 0)
+        pi.write(27, 0)
+        pi.write(17, 0)
 
 def predict(combined_input):
     input = combined_input.unsqueeze(0)
@@ -26,11 +37,20 @@ def predict(combined_input):
 
     return predicted_steering
 
+status("setup")
+
+#load the model
+model = IntegratedNN()
+model.load_state_dict(torch.load(model_path))
+model.eval()
+
 #setup
-setup()
+pi = setup()
 print("start")
+
 while True:
     try:
+        status("running")
         tof = list(get_tof())
         img = take_photo_fast()
 

@@ -46,6 +46,7 @@ def setup():
         print("Fehler: pigpio-Daemon läuft nicht!")
         exit(1)
     print("run setup successfull")
+    return pi
 
 def cleanup():
     pi.stop()

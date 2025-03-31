@@ -23,14 +23,15 @@ def get_input(): #get the controler inputs and convert it into commands for the 
     print("")
 
 def collect_data(velocity, steering):
-    #gyro = get_gyro() #might add a gyro later
-    take_photo_async(filepath, data_saves)
-    full_path = os.path.join(filepath, f"cam-{data_saves}.jpg")
+    global data_saves
+    current_save = data_saves  # lokalen Zähler speichern
+    take_photo_async(filepath, current_save)
+    full_path = os.path.join(filepath, f"cam-{current_save}.jpg")
     photo = os.path.relpath(full_path, start=filepath)
     try:
         tof = get_tof()
     except:
-        tof=[None, None]
+        tof = [None, None]
     data_buffer.append([photo, *tof, steering, velocity])
 
 now = datetime.now() #getting the time to add a time stamp to the file name

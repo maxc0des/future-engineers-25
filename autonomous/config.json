@@ -1,0 +1,12 @@
+{
+    "motor":{
+        "servo": "19",
+        "motor-speed": "13",
+        "motor1":"5",
+        "motor2":"6"
+    },
+    "sensor":{
+        "xshut0": "23",
+        "xshut1": "24"
+    }
+}

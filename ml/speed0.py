@@ -8,8 +8,10 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 import json
-from models import FullNN, IntegratedNN, EfficientNet5Channel
-import time
+from models import FullNN, IntegratedNN, EfficientNet5Channel, IntegratedNN2
+import os
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from playsound import playsound
 
 # Configuration:
 print("loading the config now")
@@ -92,18 +94,18 @@ def test_loop(dataloader, model, loss_fn):
     test_plt.append(avg_loss)
 
 def earlystop(values: list):
-    global patience_counter; global window_size
-    if len(test_plt)>min_epochs:
-        test_plt[-4]
+    global patience_counter, window_size
+    if len(values) > min_epochs:
         derivatives = np.diff(values[-window_size:])
         print(f"Avg Derivatives: {np.mean(derivatives)}")
-        if np.mean(derivatives)>0:
+
+        if np.mean(derivatives) > 0:  # Wenn der Test-Loss steigt
             patience_counter += 1
-            print(f"Patience: {patience_counter}")
+            print(f"Patience: {patience_counter}/{patience}")
         else:
             patience_counter = 0
-        if patience_counter > patience:
-            return True
+
+        return patience_counter >= patience
     return False
 
 
@@ -113,12 +115,34 @@ train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True
 val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 model = IntegratedNN()
-loss_fn = nn.MSELoss()
+#loss_fn = nn.MSELoss()
+loss_fn = nn.SmoothL1Loss(beta=1.0)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4,)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5)
+scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+if input("model weitertraineren?") in ["yes", "y"]:
+    filename = str(input("model name: "))
+    if not os.path.exists(f"{filename}.pth"):
+        print("model not found")
+        exit()
 
+        #layer einfrieren
+        #for param in model.features.parameters():
+        #param.requires_grad = False
+        #model.fc = torch.nn.Linear(512, 1)
+
+    model.load_state_dict(torch.load(f"{filename}.pth"))
+    model.train()
+    checkpoint = torch.load(f"checkpoint-{filename}.pth")
+
+    model.load_state_dict(checkpoint["model_state"])
+    optimizer.load_state_dict(checkpoint["optimizer_state"])
+    start = checkpoint["epoch"]
+    loss = checkpoint["loss"]
+    print(f"loaded model from epoch {start} with loss {loss}")
+else:
+    start = 0
 #execution starts here:
-e = 0
+e = start
 best_loss = float('inf')
 plt.ion()
 fig, ax = plt.subplots()
@@ -134,28 +158,25 @@ while True:
         scheduler.step(test_plt[-1])
         #loss_plt.append(e)
         #test_plt.append(e+1)
-        # Get the last 5 values
-        plot1 = loss_plt[-6:]
-        plot2 = test_plt[-6:]
-        print(len(plot1))
-        if e  < 6:
-            x = list(range(1, e+1))
-        else:
-            x = list(range(e-5, e))
-            x.append(e)
-        # Update the plot with the last 5 values
+
+        num_points = min(len(loss_plt), 6)  # Use up to last 6 points
+        plot1 = loss_plt[-num_points:]
+        plot2 = test_plt[-num_points:]
+        x = list(range(e - num_points + 1, e + 1))
+
+        # Update the plot
         line1.set_xdata(x)
         line1.set_ydata(plot1)
         line2.set_xdata(x)
         line2.set_ydata(plot2)
 
-        ax.set_xlim(e-5, e)
-        ax.set_ylim(min(min(plot1, default=0), min(plot2, default=0)), 
-                    max(max(plot1, default=1), max(plot2, default=1)))
-        ax.relim()
-        ax.autoscale_view()
-        plt.draw()
-        plt.pause(0.6)
+        ax.set_xlim(e - num_points + 1, e + 1)
+        ax.set_ylim(min(plot1 + plot2, default=0), max(plot1 + plot2, default=1))
+
+        fig.canvas.draw()   # Force redraw
+        fig.canvas.flush_events()  # Process GUI events
+        plt.pause(0.6)  # Pause for updates
+
 
         if earlystop(test_plt):
             print("earlystopping")
@@ -168,6 +189,10 @@ while True:
     except KeyboardInterrupt:
         break
 print("Training abgeschlossen! ✅")
+try:
+    playsound("finished.mp3")
+except:
+    print("no sound")
 plt.ioff()
 
 
@@ -192,8 +217,16 @@ for i in range(10):
     print(f"🔮 Vorhersage:  Steering Angle = {predicted_steering:.2f}")
 
 print("right predictions: ", right_predictions, "/10")
-if input("Do you want to save the model? (y/n): ") in ["y", "Y", "yes", "Yes"]:
-    torch.save(model.state_dict(), "model.pth")
+filename = str(input("filename for saving the model: "))
+if not filename in ["", " "]:
+    torch.save(model.state_dict(), f"{filename}.pth")
+    checkpoint = {
+        "epoch": e,
+        "model_state": model.state_dict(),
+        "optimizer_state": optimizer.state_dict(),
+        "loss": loss_plt[-1] if loss_plt else float('inf'),
+    }
+    torch.save(checkpoint, f"checkpoint-{filename}.pth")
     print("Model saved! 📦")
 plt.close()
 plt.figure()

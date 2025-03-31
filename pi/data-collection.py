@@ -32,6 +32,7 @@ worker_thread.start()
 
 def collect_data(velocity, steering):
     global data_saves
+<<<<<<< HEAD
     
     full_path = os.path.join(filepath, f"cam-{data_saves}.jpg")
     img_array = take_photo_fast(filepath=full_path, index=data_saves)
@@ -44,6 +45,17 @@ def collect_data(velocity, steering):
     except Exception as e:
         print(f"ToF Error: {e}")
         tof = [None, None]
+=======
+    current_save = data_saves  # lokalen Zähler speichern
+    take_photo_async(filepath, current_save)
+    full_path = os.path.join(filepath, f"cam-{current_save}.jpg")
+    photo = os.path.relpath(full_path, start=filepath)
+    try:
+        tof = get_tof()
+    except:
+        tof = [None, None]
+    data_buffer.append([photo, *tof, steering, velocity])
+>>>>>>> 33aa668a80be1793db68ce74ac2ca0374e5dcc72
 
     data_buffer.append([photo_rel_path, *tof, steering, velocity])
     data_saves += 1  # Foto-Counter hochzählen

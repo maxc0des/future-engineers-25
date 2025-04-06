@@ -1,22 +1,39 @@
-import pygame # type: ignore
-import time
-from motor import *
+import torch
 import pandas as pd
-from datetime import datetime
-from get_data import get_tof, take_photo_fast
-import os
-import threading
-import queue
 from PIL import Image
+from models import IntegratedNN
+from torchvision import transforms
 
+import pygame #type: ignore
+import threading
+import time
+import queue
+import os
+from datetime import datetime
+
+from get_data import get_tof, take_photo_fast
+from motor import servo, motor, setup, cleanup
+
+#define the paths
+csv_path = "train_data.csv"
+model_path = "model.pth"
+
+mode = "autonomous"
 data_buffer = []
 last_data_save = 0
 last_df_save = 0
 filepath = ""
 data_saves = 0
-record = False
 
 photo_queue = queue.Queue()
+
+def predict(combined_input):
+    input = combined_input.unsqueeze(0)
+    with torch.no_grad():
+        prediction = model(input)
+    predicted_steering = prediction.squeeze().tolist()
+
+    return predicted_steering
 
 def photo_worker():
     while True:
@@ -48,10 +65,16 @@ def collect_data(velocity, steering):
     data_buffer.append([photo_rel_path, *tof, steering, velocity])
     data_saves += 1  # Foto-Counter hochzählen
 
+#load the model
+model = IntegratedNN()
+model.load_state_dict(torch.load(model_path))
+model.eval()
+
+#setup
 now = datetime.now()
 time_stamp = now.strftime("%d-%H-%M-%S")
 root = os.getcwd()
-filepath = os.path.join(root, f"data-{time_stamp}")
+filepath = os.path.join(root, f"supervised-{time_stamp}")
 os.makedirs(filepath, exist_ok=True)
 
 pygame.init()
@@ -62,49 +85,75 @@ if pygame.joystick.get_count() == 0:
 controller = pygame.joystick.Joystick(0)
 controller.init()
 print(f"Verbunden mit: {controller.get_name()}")
-setup()
 
 df = pd.DataFrame(columns=['cam_path', 'tof_1', 'tof_2', 'steering_angle', 'velocity'])
 
-print("Recording bereit, drücke 'O' zum Starten.")
+pi = setup()
+print("start")
 
 while True:
     try:
         pygame.event.pump()
-        if controller.get_button(0):
-            break
-        if controller.get_button(1):
-            record = True
-            print("Recording gestartet")
-        if controller.get_button(2):
-            record = False
-            print("Recording pausiert")
-        if record:
-            velocity = int(controller.get_axis(1) * 210 * -1)
-            steering = int((controller.get_axis(3) * 30) + 50)
+        if controller.get_button(0): #X-Button
+            mode = "break"
+            print(mode)
+        if controller.get_button(1): #O-Button
+            mode = "autonomous"
+            print(f"now driving {mode}")
+        if 55 < controller.get_axis(3)*30+50 < 45:
+            mode = "manuel"
+            print(f"now driving {mode}")
 
-            if -10 < velocity < 10:
-                velocity = 0  # Stick-Drift fixen
+        if mode == "autonomous":
+            tof = list(get_tof())
+            img = take_photo_fast()
 
-            motor(velocity)
+            image = Image.fromarray(img)
+            image = transforms.Resize((128, 128))(image) #might change size
+            image = transforms.ToTensor()(image)
+            image = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(image)
+
+            tof = torch.tensor([
+                tof[0],
+                tof[1]
+            ], dtype=torch.float32)
+
+            tof_expanded = tof.view(2, 1, 1).expand(2, 128, 128)
+            combined_input = torch.cat((image, tof_expanded), dim=0)
+            steering = predict(combined_input)
+            motor(speed=100)
             servo(steering)
+            
+            #debugging:
+            print(f"predicted angel: {steering}, tof: {tof}")
 
+        elif mode == "manuel":
+            pygame.event.pump()
+            steering = int((controller.get_axis(3) * 30) + 50)
+            motor(speed=100)
+            servo(steering)
             if time.time() - last_data_save >= 0.3:
-                collect_data(velocity, steering)
+                collect_data(velocity=100, steering=steering)
                 last_data_save = time.time()
 
-            if time.time() - last_df_save >= 20:
+            if len(data_buffer) > 20:
                 print("Speichere CSV-Daten...")
                 new_df = pd.DataFrame(data=data_buffer, columns=df.columns)
                 data_buffer.clear()
                 df = pd.concat([df, new_df], ignore_index=True)
                 last_df_save = time.time()
 
+        elif mode == "break":
+            time.sleep(0.1)
+    
     except KeyboardInterrupt:
         break
 
 motor(0)
 servo(50)
+cleanup()
+pygame.quit()
+
 print("Warte auf die Abarbeitung der restlichen Fotoaufgaben...")
 photo_queue.join()
 photo_queue.put(None)
@@ -119,6 +168,3 @@ filename = f'{filepath}/train-data{time_stamp}.csv'
 df.to_csv(filename, index=False)
 print("Daten gespeichert!")
 print(df.head(5))
-
-cleanup()
-pygame.quit()

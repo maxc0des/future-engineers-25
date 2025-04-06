@@ -6,7 +6,6 @@ from tqdm import tqdm
 
 #================================
 # Change the parameters here:
-data_path = "train-data10-13-12-09.csv"
 
 data_filters = []#["steering", 80, "<"]
 picture_adjustments = [["brightness", 60, 50]]  # feature, value < 255 (max), iterations
@@ -57,8 +56,15 @@ def adjust_picture(feature: str, value: int, img_path: str) -> str:
         raise ValueError("Feature not recognized for adjustment.")
 
 if __name__ == "__main__":
-    if not os.path.exists(data_path):
-        raise FileNotFoundError(f"Data path {data_path} does not exist.")
+    csv = []
+    for file in os.listdir(os. getcwd()):
+        if file.endswith(".csv"):
+            csv.append(file)
+    if len(csv) > 1:
+        print("found more than 1 csv file")
+        exit(code=1)
+    else:
+        data_path = csv[0]
     input("Make sure to back up the DataFrame before running this.")
     df = pd.read_csv(data_path)
     df.columns = df.columns.str.strip()  # Strip whitespace from column names

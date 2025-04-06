@@ -1,5 +1,5 @@
+#eröfnungsrennen
 import torch
-import pandas as pd
 from PIL import Image
 from models import IntegratedNN
 from torchvision import transforms
@@ -8,8 +8,9 @@ from get_data import get_tof, take_photo_fast
 from motor import servo, motor, setup, cleanup
 
 #define the paths
-csv_path = "train_data.csv"
 model_path = "model.pth"
+a_model = "model.pth"
+c_model = "model.pth"
 
 def status(status: str):
     if status == "running":
@@ -37,24 +38,55 @@ def predict(combined_input):
 
     return predicted_steering
 
-status("setup")
+#determine the direction
+def start_sequence():
+    i = 0
+    servo(50)
+    while True:
+        tof = list(get_tof())
+        if tof[0] > 50:
+            direction = "anticlockwise"
+            motor(speed=0)
+            break
+        elif tof[1] > 50:
+            direction = "clockwise"
+            motor(speed=0)
+            break
+        else:
+            motor(speed=100)
+        i += 1
+    for step in range(i):
+        motor(speed=-100)
+    
+    motor(speed=0)
+    print(f"set direction to {direction}")
+    return direction
 
-#load the model
-model = IntegratedNN()
-model.load_state_dict(torch.load(model_path))
-model.eval()
+status("setup")
 
 #setup
 pi = setup()
-print("start")
+print("starting setup")
 
+#load the needed model
+model = IntegratedNN()
+direction = start_sequence()
+if direction == "anticlockwise":
+    model.load_state_dict(torch.load(a_model))
+elif direction == "clockwise":
+    model.load_state_dict(torch.load(c_model))
+model.eval()
+
+print("switching to autonomous mode")
+
+#main loop
 while True:
     try:
         status("running")
         tof = list(get_tof())
         img = take_photo_fast()
 
-        image = Image.fromarray(img) #fix this soon
+        image = Image.fromarray(img)
         image = transforms.Resize((128, 128))(image)
         image = transforms.ToTensor()(image)
         image = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(image)
@@ -67,14 +99,15 @@ while True:
         tof_expanded = tof.view(2, 1, 1).expand(2, 128, 128)
         combined_input = torch.cat((image, tof_expanded), dim=0)
         steering = predict(combined_input)
-        motor(speed=200)
-        servo(steering)
+        motor(speed=100)
+        servo(int(steering))
         
         #debugging:
         print(f"predicted angel: {steering}, tof: {tof}")
     
     except KeyboardInterrupt:
         break
+
 motor(0)
 servo(50)
 cleanup()

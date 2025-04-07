@@ -1,5 +1,6 @@
 import torch
 import pandas as pd
+import numpy as np
 from PIL import Image
 from models import IntegratedNN
 from torchvision import transforms
@@ -24,6 +25,10 @@ last_data_save = 0
 last_df_save = 0
 filepath = ""
 data_saves = 0
+prev_img = np.zeros((128, 128, 3), dtype=np.uint8)
+
+basic_speed = 100
+curve_speed = 120
 
 photo_queue = queue.Queue()
 
@@ -105,9 +110,21 @@ while True:
             print(f"now driving {mode}")
 
         if mode == "autonomous":
-            tof = list(get_tof())
             img = take_photo_fast()
+            diff = np.abs(img.astype(np.int16) - prev_img.astype(np.int16))
+            movement = np.mean(diff)
+            threshold = 10
+            num_changed_pixels = np.sum(diff > threshold)
+            if num_changed_pixels < 100: #⚠️ parameter evtl anpassen
+                motor(speed=-100)
+                time.sleep(0.1)
+                motor(speed=0)
+                img = take_photo_fast()
+                continue
 
+            prev_img = img.copy()
+
+            tof = list(get_tof())
             image = Image.fromarray(img)
             image = transforms.Resize((128, 128))(image) #might change size
             image = transforms.ToTensor()(image)
@@ -121,9 +138,13 @@ while True:
             tof_expanded = tof.view(2, 1, 1).expand(2, 128, 128)
             combined_input = torch.cat((image, tof_expanded), dim=0)
             steering = predict(combined_input)
-            motor(speed=100)
-            servo(steering)
             
+            servo(int(steering))
+            if steering < 30 or steering > 70:
+                motor(speed=curve_speed)
+            else:
+                motor(speed=basic_speed)
+
             #debugging:
             print(f"predicted angel: {steering}, tof: {tof}")
 

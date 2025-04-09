@@ -43,7 +43,10 @@ def start_sequence():
     i = 0
     servo(50)
     while True:
-        tof = list(get_tof())
+        try:
+            tof = list(get_tof())
+        except OSError:
+            tof = [0, 0]
         if tof[0] > 50:
             direction = "anticlockwise"
             motor(speed=0)
@@ -83,7 +86,10 @@ print("switching to autonomous mode")
 while True:
     try:
         status("running")
-        tof = list(get_tof())
+        try:
+            tof = list(get_tof())
+        except OSError:
+            tof = [0, 0]
         img = take_photo_fast()
 
         image = Image.fromarray(img)

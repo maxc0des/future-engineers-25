@@ -15,8 +15,7 @@ from get_data import get_tof, take_photo_fast
 from motor import servo, motor, setup, cleanup
 
 #define the paths
-csv_path = "train_data.csv"
-model_path = "model.pth"
+model_path = "8l.pth"
 
 mode = "autonomous"
 data_buffer = []
@@ -51,7 +50,7 @@ def collect_data(velocity, steering):
     global data_saves
     
     full_path = os.path.join(filepath, f"cam-{data_saves}.jpg")
-    img_array = take_photo_fast(filepath=full_path, index=data_saves)
+    img_array = take_photo_fast()
     photo_queue.put((full_path, img_array))
 
     photo_rel_path = os.path.relpath(full_path, start=filepath)
@@ -88,7 +87,7 @@ print(f"Verbunden mit: {controller.get_name()}")
 
 df = pd.DataFrame(columns=['cam_path', 'tof_1', 'tof_2', 'steering_angle', 'velocity'])
 
-pi = setup()
+setup()
 print("start")
 
 while True:
@@ -96,13 +95,13 @@ while True:
         pygame.event.pump()
         if controller.get_button(0): #X-Button
             mode = "break"
+            motor(0)
             print(mode)
         if controller.get_button(1): #O-Button
             mode = "autonomous"
             print(f"now driving {mode}")
-        if 55 < controller.get_axis(3)*30+50 < 45:
+        if controller.get_axis(3)*30+50 < 45 or controller.get_axis(3)*30+50 > 55:
             mode = "manuel"
-            print(f"now driving {mode}")
 
         if mode == "autonomous":
             tof = list(get_tof())
@@ -121,7 +120,7 @@ while True:
             tof_expanded = tof.view(2, 1, 1).expand(2, 128, 128)
             combined_input = torch.cat((image, tof_expanded), dim=0)
             steering = predict(combined_input)
-            motor(speed=100)
+            motor(speed=110)
             servo(steering)
             
             #debugging:
@@ -130,10 +129,11 @@ while True:
         elif mode == "manuel":
             pygame.event.pump()
             steering = int((controller.get_axis(3) * 30) + 50)
-            motor(speed=100)
+            motor(speed=110)
             servo(steering)
+            print(f"manual steering: {steering}")
             if time.time() - last_data_save >= 0.3:
-                collect_data(velocity=100, steering=steering)
+                collect_data(velocity=110, steering=steering)
                 last_data_save = time.time()
 
             if len(data_buffer) > 20:

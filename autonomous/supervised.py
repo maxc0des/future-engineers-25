@@ -146,7 +146,7 @@ while True:
                 motor(speed=basic_speed)
 
             #debugging:
-            print(f"predicted angel: {steering}, tof: {tof}")
+            print(f"predicted angle: {steering}, tof: {tof}")
 
         elif mode == "manuel":
             pygame.event.pump()

@@ -1,9 +1,9 @@
-import torch
+import torch #type: ignore
 import pandas as pd
 import numpy as np
 from PIL import Image
 from models import IntegratedNN
-from torchvision import transforms
+from torchvision import transforms #type: ignore
 
 import pygame #type: ignore
 import threading
@@ -93,7 +93,7 @@ print(f"Verbunden mit: {controller.get_name()}")
 df = pd.DataFrame(columns=['cam_path', 'tof_1', 'tof_2', 'steering_angle', 'velocity'])
 
 setup()
-print("start")
+input("start")
 
 while True:
     try:
@@ -110,11 +110,17 @@ while True:
 
         if mode == "autonomous":
             img = take_photo_fast()
+            # Ensure prev_img is initialized with the correct shape on first run or if dimensions change.
+            if prev_img.shape != img.shape:
+                prev_img = img.copy()
+                continue
+
             diff = np.abs(img.astype(np.int16) - prev_img.astype(np.int16))
             movement = np.mean(diff)
             threshold = 10
             num_changed_pixels = np.sum(diff > threshold)
             if num_changed_pixels < 100: #⚠️ parameter evtl anpassen
+                print("keine Bewegung erkannt")
                 motor(speed=-100)
                 time.sleep(0.1)
                 motor(speed=0)
@@ -128,29 +134,31 @@ while True:
             image = transforms.Resize((128, 128))(image) #might change size
             image = transforms.ToTensor()(image)
             image = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(image)
+            try:
+                tof = torch.tensor([
+                    tof[0],
+                    tof[1]
+                ], dtype=torch.float32)
 
-            tof = torch.tensor([
-                tof[0],
-                tof[1]
-            ], dtype=torch.float32)
+                tof_expanded = tof.view(2, 1, 1).expand(2, 128, 128)
+                combined_input = torch.cat((image, tof_expanded), dim=0)
+                steering = predict(combined_input)
 
-            tof_expanded = tof.view(2, 1, 1).expand(2, 128, 128)
-            combined_input = torch.cat((image, tof_expanded), dim=0)
-            steering = predict(combined_input)
-<<<<<<< HEAD
-            motor(speed=110)
-            servo(steering)
-=======
->>>>>>> d249fc5570654eae8f878a99766e9c7bcc41ef11
-            
-            servo(int(steering))
-            if steering < 30 or steering > 70:
-                motor(speed=curve_speed)
-            else:
-                motor(speed=basic_speed)
+                servo(steering)
+                
+                servo(int(steering))
+                if steering < 30 or steering > 70:
+                    motor(speed=curve_speed)
+                else:
+                    motor(speed=basic_speed)
 
-            #debugging:
-            print(f"predicted angle: {steering}, tof: {tof}")
+                #debugging:
+                print(f"predicted angle: {steering}, tof: {tof}")
+            except Exception as e:
+                print(f"Error: {e}")
+                motor(speed=0)
+                servo(50)
+                continue
 
         elif mode == "manuel":
             pygame.event.pump()

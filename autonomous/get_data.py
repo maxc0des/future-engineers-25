@@ -290,3 +290,7 @@ def take_photo_fast():
 #get the gyro data
 def get_gyro():
     return z_axis
+
+def reset_gyro():
+    global z_axis
+    z_axis = 0

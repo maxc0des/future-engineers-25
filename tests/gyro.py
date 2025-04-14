@@ -194,21 +194,30 @@ class mpu6050:
 
 mpu = mpu6050(0x68)
 z_axis = 0
+y_distance = 0
 offset = []
+accel_offset = []
 for i in range(10):
+    accel_data = mpu.get_accel_data()
     gyro_data = mpu.get_gyro_data()
     offset.append(gyro_data['z'])
+    accel_offset.append(accel_data['x'])
     time.sleep(0.2)
-z_offset = np.mean(offset)
-
+x_offset = np.mean(offset)
+y_offset = np.mean(accel_offset)
+d = 0
+t_start = time.time()
 if __name__ == "__main__":
     while (1):
         try:
            accel_data = mpu.get_accel_data()
            gyro_data = mpu.get_gyro_data()
-           z_axis += gyro_data['z'] - z_offset
+           z_axis += gyro_data['z'] - x_offset
+           y_distance += accel_data['x'] - y_offset
+           t = (t_start - time.time())/1000
+           #d += 1/2 * a * t**2 #d=1/2*a*t**2
            print("Ax:{:.4f}\tAy:{:.4f}\tAz:{:.4f}\tGx:{:.4f}\tGy:{:.4f}\tGz:{:.4f} ".format(accel_data['x'], accel_data['y'], accel_data['z'], gyro_data['x'], gyro_data['y'], gyro_data['z']))
-           print("Z-Axis: {:.4f}".format(z_axis))
+           #print("Z-Axis: {:.4f}".format(z_axis), "Y-Distance: {:.4f}".format(y_distance))
         except KeyboardInterrupt:
             break
 

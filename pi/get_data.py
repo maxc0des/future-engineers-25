@@ -214,7 +214,7 @@ last_time = time.time()
 mpu = mpu6050(0x68)
 
 def gyro_thread():
-    global z_axis, last_time
+    global z_axis, last_time, z_offset
     while True:
         current_time = time.time()
         dt = current_time - last_time
@@ -272,9 +272,9 @@ tof_sensor1, tof_sensor2, picam, z_offset, last_time = initialize_sensors()
 
 #get the distances
 def get_tof():
-    sensor_data = {
+    sensor_data = [
         tof_sensor1.range, tof_sensor2.range
-    }
+    ]
     return sensor_data
 
 #take the photo and return the path
@@ -289,4 +289,5 @@ def take_photo_fast():
 
 #get the gyro data
 def get_gyro():
+    global z_axis
     return z_axis

@@ -210,6 +210,7 @@ class mpu6050:
         return {'x': x, 'y': y, 'z': z}
 
 z_axis = 0
+z_offset = 0
 last_time = time.time()
 mpu = mpu6050(0x68)
 
@@ -241,11 +242,11 @@ def initialize_sensors():
     pi.write(xshut1, 0)
     time.sleep(0.1)
     pi.write(xshut0, 1)
-    time.sleep(0.1)
+    time.sleep(0.5)
     sensor1 = adafruit_vl53l0x.VL53L0X(i2c)
     sensor1.set_address(0x30)
     pi.write(xshut1, 1)
-    time.sleep(0.1)
+    time.sleep(0.5)
     sensor2 = adafruit_vl53l0x.VL53L0X(i2c)
     sensor2.set_address(0x31)
     picam = Picamera2()
@@ -272,9 +273,9 @@ tof_sensor1, tof_sensor2, picam, z_offset, last_time = initialize_sensors()
 
 #get the distances
 def get_tof():
-    sensor_data = {
+    sensor_data = [
         tof_sensor1.range, tof_sensor2.range
-    }
+    ]
     return sensor_data
 
 #take the photo and return the path
@@ -288,8 +289,21 @@ def take_photo_fast():
     return array
 
 #get the gyro data
-def get_gyro():
-    return z_axis
+def get_gyro(value: str):
+    global z_axis
+    if value == "accel":
+        accel = mpu.get_accel_data()
+        a = accel['y']
+        return a
+    elif value == "gyro":
+        return z_axis
+    elif value == "2":
+        accel = mpu.get_accel_data()
+        a = accel['y']
+        return z_axis, a
+    else:
+        return False
+    
 
 def reset_gyro():
     global z_axis

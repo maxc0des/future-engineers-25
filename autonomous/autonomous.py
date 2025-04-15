@@ -12,6 +12,14 @@ model_path = "model.pth"
 a_model = "model.pth"
 c_model = "model.pth"
 
+#add button stopping soon
+class ButtonPressed(Exception):
+    pass
+
+    def check_button():
+        if pi.gpio_trigger():
+            raise ButtonPressed
+
 def status(status: str):
     if status == "running":
         pi.write(22, 1)

@@ -1,3 +1,4 @@
--Gyro Sensor zum laufen bringen
--Neuronales Netzwerk implimentieren
+-neuronales netzwerk evtl verbessern
 -evtl torchscript
+-bilder croppen
+-spezifische nn's trainieren + laden

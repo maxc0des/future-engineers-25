@@ -19,6 +19,12 @@ class ButtonPressed(Exception):
     def check_button():
         if pi.gpio_trigger():
             raise ButtonPressed
+        
+def crop_image(image):
+    height, width = image.shape[:2]
+    cropped_image = image[height-1600:height, 0:width]
+
+    return cropped_image
 
 def status(status: str):
     if status == "running":
@@ -101,6 +107,7 @@ while True:
         img = take_photo_fast()
 
         image = Image.fromarray(img)
+        image = crop_image(image)
         image = transforms.Resize((128, 128))(image)
         image = transforms.ToTensor()(image)
         image = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(image)

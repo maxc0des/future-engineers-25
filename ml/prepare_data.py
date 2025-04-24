@@ -55,6 +55,22 @@ def adjust_picture(feature: str, value: int, img_path: str) -> str:
     else:
         raise ValueError("Feature not recognized for adjustment.")
 
+#lets crop the image
+def crop_image(image_path):
+    # Load the image
+    image = cv2.imread(image_path)
+    height, width = image.shape[:2]
+
+    cropped_image = image[height-1600:height, 0:width]
+
+    cv2.imwrite(image_path, cropped_image)
+
+    #debuggning
+    #cv2.imshow('Cropped Image', cropped_image)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
+    return cropped_image
+
 if __name__ == "__main__":
     csv = []
     for file in os.listdir(os. getcwd()):
@@ -104,6 +120,7 @@ if __name__ == "__main__":
         if remove_nan(path=img_path, index=i) is not None:
             nan_rows.append(i)
         os.rename(img_path, f"images/{img_path}")
+        crop_image(img_path)
     df = df.drop(nan_rows).reset_index(drop=True)
     print("Finished adjusting pictures.")
     df = df.sample(frac=1).reset_index(drop=True)

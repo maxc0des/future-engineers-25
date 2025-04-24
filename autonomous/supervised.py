@@ -31,6 +31,12 @@ curve_speed = 120
 
 photo_queue = queue.Queue()
 
+def crop_image(image):
+    height, width = image.shape[:2]
+    cropped_image = image[height-1600:height, 0:width]
+
+    return cropped_image
+
 def predict(combined_input):
     input = combined_input.unsqueeze(0)
     with torch.no_grad():
@@ -131,6 +137,7 @@ while True:
 
             tof = list(get_tof())
             image = Image.fromarray(img)
+            image = crop_image(image)
             image = transforms.Resize((128, 128))(image) #might change size
             image = transforms.ToTensor()(image)
             image = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(image)

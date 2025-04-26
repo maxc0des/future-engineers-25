@@ -5,14 +5,15 @@ from models import IntegratedNN
 from torchvision import transforms
 import numpy as np
 import time
+import pigpio as gpio
 
 from get_data import get_tof, take_photo_fast
 from motor import servo, motor, setup, cleanup
 
 #define the paths
-model_path = "model.pth"
-a_model = "model.pth" #model for going clockwise
-c_model = "model.pth" #model for going counterclockwise
+model_path = "v1.pth"
+a_model = "v1.pth" #model for going clockwise
+c_model = "v1.pth" #model for going counterclockwise
 
 #defining speed presets
 basic_speed = 100
@@ -20,6 +21,7 @@ curve_speed = 120
 
 #define other const
 threshold = 10
+prev_img = None
 
 #button stopping
 class ButtonPressed(Exception):
@@ -31,9 +33,12 @@ class ButtonPressed(Exception):
 
 #crop image before processing it        
 def crop_image(image):
-    height, width = image.shape[:2]
-    cropped_image = image[height-1600:height, 0:width]
-
+    # image ist ein PIL-Image. image.size gibt (width, height) zurück.
+    width, height = image.size
+    start_y = max(0, height - 1600)
+    # crop(left, top, right, bottom)
+    cropped_image = image.crop((0, start_y, width, height))
+    cropped_image.save("debug.png")
     return cropped_image
 
 #display staus of the execution
@@ -94,12 +99,16 @@ def start_sequence():
 def reset():
     print("2reset??")
 
-status("setup")
+
 
 #EXECUTION STARTS HERE
 #setup
 print("starting setup")
-pi = setup()
+
+pi = gpio.pi()
+status("setup")
+
+setup()
 
 #load the needed model
 model = IntegratedNN()
@@ -121,7 +130,8 @@ while True:
         img = take_photo_fast()
         
         #check if img has changed
-        if prev_img.shape != img.shape:
+        print("checking pic")
+        if prev_img is None or prev_img.shape != img.shape:
             prev_img = img.copy()
             continue
         diff = np.abs(img.astype(np.int16) - prev_img.astype(np.int16))
@@ -164,6 +174,8 @@ while True:
             #debugging:
             print(f"predicted angle: {steering}, tof: {tof}")
         except Exception as e:
+            status("error")
+            time.sleep(0.4)
             print(f"Error: {e}")
             motor(speed=0)
             servo(50)
@@ -177,6 +189,7 @@ while True:
 
     except Exception as e:
         print(f"weewoo {e}")
+        status("error")
         time.sleep(0.5)
         continue
 

@@ -26,7 +26,7 @@ curve_speed = 120
 
 #define other const
 turns = 0
-threshold = 10
+threshold = 30
 pixel_threshold = 100
 base_delay = 1
 speed_boost = 40
@@ -301,8 +301,9 @@ while True:
         diff = np.abs(img.astype(np.int16) - prev_img.astype(np.int16))
         movement = np.mean(diff)
         num_changed_pixels = np.sum(diff > threshold)
-        print(num_changed_pixels)
+        #print(num_changed_pixels)
         if num_changed_pixels < pixel_threshold: #⚠️ parameter evtl anpassen
+            status("error")
             print("keine Bewegung erkannt")
             motor(speed=-100)
             time.sleep(0.1)

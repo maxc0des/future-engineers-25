@@ -1,4 +1,3 @@
 -neuronales netzwerk evtl verbessern
 -evtl torchscript
--bilder croppen
--spezifische nn's trainieren + laden
+-spezifische nn's trainieren

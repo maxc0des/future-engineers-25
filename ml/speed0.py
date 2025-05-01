@@ -90,7 +90,7 @@ def test_loop(dataloader, model, loss_fn):
             test_loss += loss_fn(pred, labels).item()
 
     avg_loss = test_loss / len(dataloader)
-    print(f"Test Error: Avg MSE Loss: {avg_loss:>8f}")
+    print(f"Test Error: Avg Loss: {avg_loss:>8f}")
     test_plt.append(avg_loss)
 
 def earlystop(values: list):
@@ -119,16 +119,12 @@ model = IntegratedNN()
 loss_fn = nn.SmoothL1Loss(beta=1.0)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4,)
 scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+
 if input("model weitertraineren?") in ["yes", "y"]:
     filename = str(input("model name: "))
     if not os.path.exists(f"{filename}.pth"):
         print("model not found")
         exit()
-
-        #layer einfrieren
-        #for param in model.features.parameters():
-        #param.requires_grad = False
-        #model.fc = torch.nn.Linear(512, 1)
 
     model.load_state_dict(torch.load(f"{filename}.pth"))
     model.train()
@@ -138,6 +134,16 @@ if input("model weitertraineren?") in ["yes", "y"]:
     optimizer.load_state_dict(checkpoint["optimizer_state"])
     start = checkpoint["epoch"]
     loss = checkpoint["loss"]
+
+    froozen_layers = int(input("how many layers to freeze? (0 for no freezing)"))
+    if froozen_layers > 0:
+        print("Freezing layers")
+        children = list(model.children())
+        for idx, layer in enumerate(children):
+            if idx < len(children) - froozen_layers:
+                for param in layer.parameters():
+                    param.requires_grad = False
+
     print(f"loaded model from epoch {start} with loss {loss}")
 else:
     start = 0

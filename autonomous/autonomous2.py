@@ -13,8 +13,8 @@ from motor import servo, motor, setup, cleanup
 
 #define the paths
 model_path = "v1.pth"
-a_model = "v1.pth" #model for going clockwise
-c_model = "v1.pth" #model for going counterclockwise
+counterclock_model = ".pth" #model for going clockwise
+clock_model = "v1.pth" #model for going counterclockwise
 redclock_model = "v1.pth" #model for going clockwise on red
 redcounter_model = "v1.pth" #model for going counterclockwise on red
 greenclock_model = "v1.pth" #model for going clockwise on green
@@ -98,11 +98,11 @@ def turn():
             if forward:
                 steering += 50
                 if remaining_angle > 0:
-                    speed = remaining_angle/(needed_angle+0.1)*speed_boost+100
+                    speed = remaining_angle/(needed_angle+0.1)*speed_boost+basic_speed
             else:
                 steering = 50 - steering
                 if remaining_angle > 0:
-                    speed = (remaining_angle/(needed_angle+0.1)*speed_boost+100)*-1
+                    speed = (remaining_angle/(needed_angle+0.1)*speed_boost+basic_speed)*-1
             print("steering",steering)
             print(speed)
             servo(steering)
@@ -248,11 +248,11 @@ setup()
 
 #load the needed model
 model = IntegratedNN()
-clockwise = start_sequence() #maybee turn
+clockwise = start_sequence() #maybe turn
 if not clockwise:
-    model.load_state_dict(torch.load(a_model))
+    model.load_state_dict(torch.load(counterclock_model))
 elif clockwise:
-    model.load_state_dict(torch.load(c_model))
+    model.load_state_dict(torch.load(clock_model))
 model.eval()
 
 print("switching to autonomous mode")
@@ -329,11 +329,13 @@ while True:
         combined_input = torch.cat((image, tof_expanded), dim=0)
         steering = predict(combined_input)
         
-        servo(int(steering))
-        if steering < 30 or steering > 70:
-            motor(speed=curve_speed)
+        if steering < 20 or steering > 80:
+            raise ValueError("steering out of bounds")
         else:
-            motor(speed=basic_speed)
+            servo(int(steering))
+
+        speed = abs(basic_speed + (abs(50-steering)))
+        motor(speed)
 
         #debugging:
         print(f"predicted angle: {steering}, tof: {tof}")

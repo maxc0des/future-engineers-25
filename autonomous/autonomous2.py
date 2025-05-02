@@ -234,6 +234,16 @@ def start_sequence():
 
 def reset():
     print("2reset??")
+    motor(0)
+    servo(50)
+    while True:
+        try:
+            time.sleep(1) 
+        except ButtonPressed:
+            break
+
+    reset_gyro()
+
 
 
 

@@ -13,8 +13,8 @@ from motor import servo, motor, setup, cleanup
 
 #define the paths
 model_path = "v1.pth"
-a_model = "v1.pth" #model for going clockwise
-c_model = "v1.pth" #model for going counterclockwise
+counterclock_model = ".pth" #model for going clockwise
+clock_model = "v1.pth" #model for going counterclockwise
 redclock_model = "v1.pth" #model for going clockwise on red
 redcounter_model = "v1.pth" #model for going counterclockwise on red
 greenclock_model = "v1.pth" #model for going clockwise on green
@@ -25,6 +25,7 @@ basic_speed = 100
 curve_speed = 120
 
 #define other const
+turns = 0
 threshold = 30
 pixel_threshold = 100
 base_delay = 1
@@ -97,11 +98,11 @@ def turn():
             if forward:
                 steering += 50
                 if remaining_angle > 0:
-                    speed = remaining_angle/(needed_angle+0.1)*speed_boost+100
+                    speed = remaining_angle/(needed_angle+0.1)*speed_boost+basic_speed
             else:
                 steering = 50 - steering
                 if remaining_angle > 0:
-                    speed = (remaining_angle/(needed_angle+0.1)*speed_boost+100)*-1
+                    speed = (remaining_angle/(needed_angle+0.1)*speed_boost+basic_speed)*-1
             print("steering",steering)
             print(speed)
             servo(steering)
@@ -175,6 +176,7 @@ def turn():
     else:
         next_color="green"
     
+    turns += 1
     return next_color
 
 #display staus of the execution
@@ -214,12 +216,12 @@ def start_sequence():
             tof = list(get_tof())
         except OSError:
             tof = [0, 0]
-        if tof[0] > 50:
-            direction = "anticlockwise"
+        if tof[0] > tof[1]:
+            clockwise = True
             motor(speed=0)
             break
-        elif tof[1] > 50:
-            direction = "clockwise"
+        elif tof[1] > tof[0]:
+            clockwise
             motor(speed=0)
             break
         else:
@@ -229,8 +231,8 @@ def start_sequence():
         motor(speed=-100)
     
     motor(speed=0)
-    print(f"set direction to {direction}")
-    return direction
+    print(f"set direction to {clockwise}")
+    return clockwise
 
 def reset():
     print("2reset??")
@@ -256,11 +258,11 @@ setup()
 
 #load the needed model
 model = IntegratedNN()
-direction = start_sequence()
-if direction == "anticlockwise":
-    model.load_state_dict(torch.load(a_model))
-elif direction == "clockwise":
-    model.load_state_dict(torch.load(c_model))
+clockwise = start_sequence() #maybe turn
+if not clockwise:
+    model.load_state_dict(torch.load(counterclock_model))
+elif clockwise:
+    model.load_state_dict(torch.load(clock_model))
 model.eval()
 
 print("switching to autonomous mode")
@@ -289,6 +291,15 @@ while True:
             else:
                  continue
             
+        z = get_gyro("gyro")
+
+        if z < -90 or z > 90:
+            turns += 1
+            reset_gyro()
+
+        if turns >= 13:
+            break
+
         status("running")
         img = take_photo_fast()
         
@@ -327,14 +338,14 @@ while True:
         tof_expanded = tof.view(2, 1, 1).expand(2, 128, 128)
         combined_input = torch.cat((image, tof_expanded), dim=0)
         steering = predict(combined_input)
-
-        servo(steering)
-                
-        servo(int(steering))
-        if steering < 30 or steering > 70:
-            motor(speed=curve_speed)
+        
+        if steering < 20 or steering > 80:
+            raise ValueError("steering out of bounds")
         else:
-            motor(speed=basic_speed)
+            servo(int(steering))
+
+        speed = abs(basic_speed + (abs(50-steering)))
+        motor(speed)
 
         #debugging:
         print(f"predicted angle: {steering}, tof: {tof}")

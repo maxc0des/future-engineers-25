@@ -10,7 +10,7 @@ import numpy as np
 
 
 csv_path = "train_data.csv"
-model_path = "model.pth"
+model_path = "clockwise.pth"
 right_predictions = 0
 calcs = 0
 median = []
@@ -25,7 +25,7 @@ data = pd.read_csv(csv_path)
 
 def get_data(index):
     original_row = data.iloc[index].copy()
-    img_path = f"{original_row['cam_path']}"
+    img_path = f"images/{original_row['cam_path']}"
     image = Image.open(img_path)
     image = transforms.Resize((128, 128))(image)
     image = transforms.ToTensor()(image)
@@ -57,7 +57,7 @@ def predict(combined_input, label):
     return predicted_steering, time_taken, offset, true_steering
 
 while True:
-    mode = input("")
+    mode = input("mode(e/n/'enter'): ")
 
     if mode == "e":
         break
@@ -72,9 +72,9 @@ while True:
     else:
         i = int(mode)
         index = None
-        calc_median = False
+        calc_median = True
 
-    plt.close
+    plt.close('all')
 
     for _ in range(i):
         if index == None:
@@ -85,11 +85,22 @@ while True:
             median.append(prediction)
     img = Image.open(img_path)
     img.thumbnail((128, 128))
-    imgplot = plt.imshow(img)
+    fig, ax = plt.subplots()
+    ax.imshow(img, extent=[0, 128, 0, 128])
+    x1, y1 = 64, 0
+    alpha = np.radians(prediction-50)
+    g = np.tan(alpha)*80 #ankathete = 80
+    x2, y2 = 64+g, 80
+    ax.plot([x1, x2], [y1, y2], 'b-', linewidth=2)
+    ax.plot([x1, 110], [y1, y2], 'r-', linewidth=2) #rechte begrenzung
+    ax.plot([x1, 17], [y1, y2], 'r-', linewidth=2) #linke begrenzung
+    #ax.set_xlim(0, 128)
+    #ax.set_ylim(0, 128)
     plt.title(f"Sample {index}:"
             f"\nWahre Werte: Steering Angle = {label:.2f}"
             f"\nVorhersage:  Steering Angle = {prediction:.2f}")
-    plt.show(block = False)
-    print(f"sample {index}, angel: {label}, offset: {offset}, time: {time_taken}")
+    plt.show(block=False)
+
+    print(f"sample {index}, angel: {label}, prediction: {prediction}, offset: {offset}, time: {time_taken}")
     if calc_median:
         print(f"median: {np.median(median)}, median offset {np.median(median)-label}")

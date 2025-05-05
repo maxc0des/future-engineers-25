@@ -34,7 +34,7 @@ def collect_data(velocity, steering):
     global data_saves
     
     full_path = os.path.join(filepath, f"cam-{data_saves}.jpg")
-    img_array = take_photo_fast(filepath=full_path, index=data_saves)
+    img_array = take_photo_fast()
     photo_queue.put((full_path, img_array))
 
     photo_rel_path = os.path.relpath(full_path, start=filepath)

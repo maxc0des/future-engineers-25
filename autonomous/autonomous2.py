@@ -1,57 +1,68 @@
 #full program for driving autonomous, make sure to set the flag correctly
-import torch
+import torch #type: ignore
 from PIL import Image
 from models import IntegratedNN
-from torchvision import transforms
+from torchvision import transforms #type: ignore
 import numpy as np
 import time
 import pigpio as gpio #type: ignore
 import cv2
+import threading
 
 from get_data import *
 from motor import servo, motor, setup, cleanup
 
 #define the paths
 model_path = "v1.pth"
-counterclock_model = ".pth" #model for going clockwise
-clock_model = "v1.pth" #model for going counterclockwise
+counterclock_model = "clockwise/clock3.pth" #model for going clockwise
+clock_model = "clockwise/clock2.pth" #model for going counterclockwise
 redclock_model = "v1.pth" #model for going clockwise on red
 redcounter_model = "v1.pth" #model for going counterclockwise on red
 greenclock_model = "v1.pth" #model for going clockwise on green
 greencounter_model = "v1.pth" #model for going counterclockwise on green
 
+#thread for button interrupts
+button_pressed_event = threading.Event()
+
 #defining speed presets
-basic_speed = 100
-curve_speed = 120
+basic_speed = 90
+speed_boost = 70
 
 #define other const
+debounce_time_us = 20000
 turns = 0
-threshold = 30
+threshold = 20
 pixel_threshold = 100
 base_delay = 1
-speed_boost = 40
+
+BUTTON_PIN = 12
+
 prev_img = None
 clockwise = False
+current_status = "off"
 
 hindernissrennen = False
-
-#button stopping
-class ButtonPressed(Exception):
-    pass
-
-    def check_button():
-        if pi.gpio_trigger():
-            raise ButtonPressed
 
 #crop image before processing it        
 def crop_image(image):
     width, height = image.size
     start_y = max(0, height - 1600)
     cropped_image = image.crop((0, start_y, width, height))
+    #save the cropped image for debugging
+    #cropped_image.save("debugging.jpg")
     return cropped_image
+
+#callback func for button
+def button_callback(gpio, level, tick):
+    if level == 0:
+        print("Taster wurde gedrückt!")
+        button_pressed_event.set()
+    
 
 #realign at corner
 def turn():
+    print("turning")
+    motor(0)
     tof = list(get_tof())
     r = tof[1]
     l = tof[0]
@@ -88,9 +99,8 @@ def turn():
     if clockwise:
         needed_angle -= 85
         while angle > needed_angle:
-            remaining_angle = (needed_angle - angle)*-1
+            remaining_angle = abs(needed_angle - angle)  # immer den Absolutwert
             print("remaining", remaining_angle)
-            #print(remaining_angle)
             if remaining_angle > 30:
                 steering = 30
             else:
@@ -98,13 +108,15 @@ def turn():
             if forward:
                 steering += 50
                 if remaining_angle > 0:
-                    speed = remaining_angle/(needed_angle+0.1)*speed_boost+basic_speed
+                    # Berechne den Speed mit Hilfe des Absolutwertes und setze den Offset
+                    speed = (abs(remaining_angle) / abs(needed_angle + 0.1)) * speed_boost + basic_speed
             else:
                 steering = 50 - steering
                 if remaining_angle > 0:
-                    speed = (remaining_angle/(needed_angle+0.1)*speed_boost+basic_speed)*-1
-            print("steering",steering)
-            print(speed)
+                    # Rückwärtsbewegung: Speed negativ
+                    speed = -((abs(remaining_angle) / abs(needed_angle + 0.1)) * speed_boost + basic_speed)
+            print("steering", steering)
+            print("speed:", speed)
             servo(steering)
             motor(speed)
             if (forward and tendency[0] == "forward") or (not forward and tendency[0] == "backward"):
@@ -121,21 +133,22 @@ def turn():
         print("needed",needed_angle)
         print("currently",angle)
         while angle < needed_angle:
-            remaining_angle = needed_angle - angle 
-            print(remaining_angle)
+            remaining_angle = abs(needed_angle - angle)
+            print("remaining", remaining_angle)
             if remaining_angle > 30:
                 steering = 30
             else:
                 steering = remaining_angle
             if forward:
+                # Im Forwardfall: Steuerung um 50 reduzieren
                 steering = 50 - steering
                 if remaining_angle > 0:
-                    speed = remaining_angle/(needed_angle+0.1)*speed_boost+100
+                    speed = (abs(remaining_angle) / abs(needed_angle + 0.1)) * speed_boost + 100
             else:
                 steering += 50
                 if remaining_angle > 0:
-                    speed = 0-remaining_angle/(needed_angle+0.1)*speed_boost+100
-            print(steering)
+                    speed = -((abs(remaining_angle) / abs(needed_angle + 0.1)) * speed_boost + 100)
+            print("steering", steering)
             servo(steering)
             motor(speed)
             if (forward and tendency[0] == "forward") or (not forward and tendency[0] == "backward"):
@@ -181,6 +194,7 @@ def turn():
 
 #display staus of the execution
 def status(status: str):
+    global current_status
     if status == "running":
         pi.write(22, 1)
         pi.write(27, 0)
@@ -197,6 +211,8 @@ def status(status: str):
         pi.write(22, 0)
         pi.write(27, 0)
         pi.write(17, 0)
+
+    current_status = status
 
 #predict steering angle
 def predict(combined_input):
@@ -216,46 +232,64 @@ def start_sequence():
             tof = list(get_tof())
         except OSError:
             tof = [0, 0]
-        if tof[0] > tof[1]:
+        if tof[0] > 800:
+            clockwise = False
+            motor(speed=0)
+            break
+        elif tof[1] > 800:
             clockwise = True
             motor(speed=0)
             break
-        elif tof[1] > tof[0]:
-            clockwise
-            motor(speed=0)
-            break
         else:
-            motor(speed=100)
+            motor(speed=basic_speed)
         i += 1
-    for step in range(i):
-        motor(speed=-100)
+    motor(speed=-100)
+    time.sleep(2)
+    motor(speed=0)
     
     motor(speed=0)
     print(f"set direction to {clockwise}")
     return clockwise
 
 def reset():
-    print("2reset??")
+    status("error")
+    print("weewoo reset")
     motor(0)
     servo(50)
     while True:
-        try:
-            time.sleep(1) 
-        except ButtonPressed:
+        if button_pressed_event.is_set():
+            button_pressed_event.clear()
             break
+        else:
+            time.sleep(0.5)
 
     reset_gyro()
-
-
-
 
 #EXECUTION STARTS HERE
 #setup
 print("starting setup")
 pi = gpio.pi()
 status("setup")
+pi.set_mode(BUTTON_PIN, gpio.INPUT)
+pi.set_pull_up_down(BUTTON_PIN, gpio.PUD_UP)
+pi.set_glitch_filter(BUTTON_PIN, debounce_time_us)
+pi.callback(BUTTON_PIN, gpio.FALLING_EDGE, button_callback)
 setup()
 
+#wait for button press
+while True:
+    if button_pressed_event.is_set():
+        button_pressed_event.clear() # Zurücksetzen des Events
+        break
+    else:
+        if current_status == "setup":
+            status("off")
+        else:
+            status("setup")
+        time.sleep(0.5)
+
+status("setup")
+print("getting direction")
 #load the needed model
 model = IntegratedNN()
 clockwise = start_sequence() #maybe turn
@@ -267,11 +301,15 @@ model.eval()
 
 print("switching to autonomous mode")
 
-input("start")
-
 #main loop
 while True:
     try:
+        if button_pressed_event.is_set():
+            print("Button Event erkannt, führe Reset aus.")
+            button_pressed_event.clear() # Zurücksetzen des Events
+            reset()
+            continue
+
         if hindernissrennen:
             tof = list(get_tof())
 
@@ -307,20 +345,24 @@ while True:
         print("checking pic")
         if prev_img is None or prev_img.shape != img.shape:
             prev_img = img.copy()
-            continue
-        diff = np.abs(img.astype(np.int16) - prev_img.astype(np.int16))
-        movement = np.mean(diff)
-        num_changed_pixels = np.sum(diff > threshold)
-        #print(num_changed_pixels)
-        if num_changed_pixels < pixel_threshold: #⚠️ parameter evtl anpassen
-            status("error")
-            print("keine Bewegung erkannt")
-            motor(speed=-100)
-            time.sleep(0.1)
-            motor(speed=0)
-            img = take_photo_fast()
-            continue
-        prev_img = img.copy()
+        else:
+            diff = np.abs(img.astype(np.int16) - prev_img.astype(np.int16))
+            movement = np.mean(diff)
+            num_changed_pixels = np.sum(diff > threshold)
+            print(num_changed_pixels)
+            if num_changed_pixels < pixel_threshold: #⚠️ parameter evtl anpassen
+                status("error")
+                print("keine Bewegung erkannt")
+                motor(speed=basic_speed*-2)
+                time.sleep(1)
+                motor(speed=0)
+                servo(50)
+                motor(speed=basic_speed*-2)
+                time.sleep(0.7)
+                motor(speed=0)
+                img = take_photo_fast()
+                continue
+            prev_img = img.copy()
 
         tof = list(get_tof())
         image = Image.fromarray(img)
@@ -342,21 +384,24 @@ while True:
         if steering < 20 or steering > 80:
             raise ValueError("steering out of bounds")
         else:
+            #if steering > 60:
+             #   turn()
+            #else:
             servo(int(steering))
 
-        speed = abs(basic_speed + (abs(50-steering)))
+        # Beispiel: Je größer der Unterschied von 50, desto höher der Speed-Zusatz.
+        divisor = 30.0  # Mit diesem Divisor bestimmst du, wie stark der Speed ansteigt
+        additional_speed = (abs(steering - 50) / divisor) * speed_boost
+        speed = basic_speed + additional_speed
+
         motor(speed)
 
         #debugging:
-        print(f"predicted angle: {steering}, tof: {tof}")
+        print(f"predicted angle: {steering}, speed: {speed}, tof: {tof}")
         
     
     except KeyboardInterrupt:
         break
-
-    except ButtonPressed:
-        reset()
-        continue
 
     except Exception as e:
         print(f"weewoo {e}")

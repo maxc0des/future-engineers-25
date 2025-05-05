@@ -217,7 +217,7 @@ if __name__ == "__main__":
            t = (t_start - time.time())/1000
            #d += 1/2 * a * t**2 #d=1/2*a*t**2
            print("Ax:{:.4f}\tAy:{:.4f}\tAz:{:.4f}\tGx:{:.4f}\tGy:{:.4f}\tGz:{:.4f} ".format(accel_data['x'], accel_data['y'], accel_data['z'], gyro_data['x'], gyro_data['y'], gyro_data['z']))
-           #print("Z-Axis: {:.4f}".format(z_axis), "Y-Distance: {:.4f}".format(y_distance))
+           print("Z-Axis: {:.4f}".format(z_axis), "Y-Distance: {:.4f}".format(y_distance))
         except KeyboardInterrupt:
             break
 

@@ -3,8 +3,8 @@ from get_data import *
 import cv2
 import numpy as np
 
-i = 1
-b = 40
+i = 1.2
+b = 60
 clockwise = True
 setup()
 #wait for the start
@@ -14,6 +14,11 @@ while True:
         break
     else:
         time.sleep(0.4)
+
+servo(50)
+motor(160)
+time.sleep(1.5)
+motor(0)
 
 #get the data for the algorithm
 tof = list(get_tof())

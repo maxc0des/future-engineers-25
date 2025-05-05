@@ -53,6 +53,7 @@ class IntegratedNN(nn.Module):
 
         # --- Convolutional Layers ---
         self.conv_block1 = nn.Sequential(
+            #nn.Conv2d(in_channels=6, out_channels=32, kernel_size=3, padding=1),
             nn.Conv2d(in_channels=5, out_channels=32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),

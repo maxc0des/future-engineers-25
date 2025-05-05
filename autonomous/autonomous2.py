@@ -364,6 +364,7 @@ while True:
                 continue
             prev_img = img.copy()
 
+        #gyro = get_gyro("gyro")
         tof = list(get_tof())
         image = Image.fromarray(img)
         image = crop_image(image)
@@ -371,13 +372,18 @@ while True:
         image = transforms.ToTensor()(image)
         image = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(image)
 
-        
+        #gyro = torch.tensor([
+        #    gyro
+        #], dtype=torch.float32)
+
         tof = torch.tensor([
             tof[0],
             tof[1]
         ], dtype=torch.float32)
 
+        #gyro_expanded = gyro.view(1, 1, 1).expand(1, 128, 128)
         tof_expanded = tof.view(2, 1, 1).expand(2, 128, 128)
+        #combined_input = torch.cat((image, tof_expanded, gyro_expanded), dim=0)
         combined_input = torch.cat((image, tof_expanded), dim=0)
         steering = predict(combined_input)
         

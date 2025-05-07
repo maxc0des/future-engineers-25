@@ -1,41 +1,32 @@
-#full program for driving autonomous, make sure to set the flag correctly
-import torch #type: ignore
-from PIL import Image
-from models import IntegratedNN
-from torchvision import transforms #type: ignore
+#backup:
 import numpy as np
 import time
 import pigpio as gpio #type: ignore
-import cv2
 import threading
 
 from get_data import *
 from motor import servo, motor, setup, cleanup
 
-#define the paths
-model_path = "v1.pth"
-counterclock_model = "counterclockwise/counter2.pth" #model for going clockwise
-clock_model = "clockwise/clock2.pth" #model for going counterclockwise
-redclock_model = "clockwise/clock2.pth" #model for going clockwise on red
-redcounter_model = "v1.pth" #model for going counterclockwise on red
-greenclock_model = "clockwise/clock2.pth" #model for going clockwise on green
-greencounter_model = "v1.pth" #model for going counterclockwise on green
-
 #thread for button interrupts
 button_pressed_event = threading.Event()
 
 #defining speed presets
-basic_speed = 80
-speed_boost = 70
+basic_speed = 90
+speed_boost = 60
 
 #define other const
 debounce_time_us = 20000
-turns = 0
+turns = 1
 threshold = 20
 pixel_threshold = 80
-base_delay = 1
+base_delay = 0.5
+
+t = 0.8
 
 BUTTON_PIN = 12
+
+counter_degrees = 85
+clock_degrees = 108
 
 prev_img = None
 clockwise = False
@@ -43,25 +34,18 @@ current_status = "off"
 
 hindernissrennen = False
 
-#crop image before processing it        
-def crop_image(image):
-    width, height = image.size
-    start_y = max(0, height - 1600)
-    cropped_image = image.crop((0, start_y, width, height))
-    #save the cropped image for debugging
-    #cropped_image.save("debugging.jpg")
-    return cropped_image
-
 #callback func for button
 def button_callback(gpio, level, tick):
     if level == 0:
-        print("Taster wurde gedrückt!")
+        print("button pressed!")
         button_pressed_event.set()
     
 
 #realign at corner
 def turn():
+    global turns, clockwise, counter_degrees, basic_speed, t
     print("turning")
+    status("running")
     motor(0)
     tof = list(get_tof())
     r = tof[1]
@@ -89,17 +73,22 @@ def turn():
     print(r)
 
     #debugging:
-    input(tendency)
+    #input(tendency)
     
-    needed_angle = get_gyro("gyro")
+    #needed_angle = get_gyro("gyro")
     time.sleep(0.1)
     #drive to start spot
     angle = get_gyro("gyro")
     forward = False #driving direction
+    print("current angle",angle)
     if clockwise:
-        needed_angle -= 85
+        needed_angle = (turns * clock_degrees)*-1
+        print("needed angle",needed_angle)
+        #needed_angle = -(turns * 70)
         while angle > needed_angle:
             remaining_angle = abs(needed_angle - angle)  # immer den Absolutwert
+            if remaining_angle < 5:
+                break
             print("remaining", remaining_angle)
             if remaining_angle > 30:
                 steering = 30
@@ -129,11 +118,14 @@ def turn():
             time.sleep(1)
 
     else:
-        needed_angle += 85
+        needed_angle = turns * counter_degrees
+        print("needed angle",needed_angle)
         print("needed",needed_angle)
         print("currently",angle)
         while angle < needed_angle:
             remaining_angle = abs(needed_angle - angle)
+            if remaining_angle < 5:
+                break
             print("remaining", remaining_angle)
             if remaining_angle > 30:
                 steering = 30
@@ -158,39 +150,16 @@ def turn():
             motor(0)
             angle = get_gyro("gyro")
             forward = not forward
-
+    
+    t += 0.1
+    counter_degrees += 2
     servo(50)
-    motor(-100)
+    motor(100)
     time.sleep(2)
     motor(0)
-    reset_gyro()
-
-    #also determine next color
-    img = take_photo_fast()
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-
-    lower_green = np.array([35,  40,  40])   # H, S, V
-    upper_green = np.array([85, 255, 255])
-
-    lower_red1 = np.array([0, 120, 70])
-    upper_red1 = np.array([10, 255, 255])
-
-    lower_red2 = np.array([170, 120, 70])
-    upper_red2 = np.array([180, 255, 255])
-
-    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-    red_mask = cv2.bitwise_or(mask1, mask2)
-
-    green_mask = cv2.inRange(hsv, lower_green, upper_green)
-    if np.count_nonzero(red_mask) > np.count_nonzero(green_mask):
-        next_color="red"
-    else:
-        next_color="green"
-    
+    status("off")
     turns += 1
-    return next_color
+
 
 #display staus of the execution
 def status(status: str):
@@ -214,15 +183,6 @@ def status(status: str):
 
     current_status = status
 
-#predict steering angle
-def predict(combined_input):
-    input = combined_input.unsqueeze(0)
-    with torch.no_grad():
-        prediction = model(input)
-    predicted_steering = prediction.squeeze().tolist()
-
-    return predicted_steering
-
 #determine the direction
 def start_sequence():
     i = 0
@@ -242,9 +202,9 @@ def start_sequence():
             break
         else:
             motor(speed=basic_speed)
-    motor(speed=-100)
-    time.sleep(2)
-    motor(speed=0)
+    #motor(speed=-100)
+    #time.sleep(2)
+    #motor(speed=0)
     
     motor(speed=0)
     print(f"set direction to {clockwise}")
@@ -293,19 +253,31 @@ while True:
 status("setup")
 print("getting direction")
 #load the needed model
-model = IntegratedNN()
 clockwise = start_sequence() #maybe turn
-if not clockwise:
-    model.load_state_dict(torch.load(counterclock_model))
-elif clockwise:
-    model.load_state_dict(torch.load(clock_model))
-model.eval()
 
 print("switching to autonomous mode")
 
 #main loop
 while True:
     try:
+        if turns > 12:
+            motor(basic_speed)
+            time.sleep(3)
+            motor(0)
+        #gyro = get_gyro("gyro")
+        tof = get_tof()
+        #print("tof0", tof[0], "tof1", tof[1])
+
+        if tof[0] > 1000 or tof[1] > 1000:
+            motor(basic_speed)
+            print("turning")
+            time.sleep(t)
+            motor(0)
+            turn()
+        else:
+            servo(50)
+            motor(basic_speed)
+
         if button_pressed_event.is_set():
             print("Button Event erkannt, führe Reset aus.")
             button_pressed_event.clear() # Zurücksetzen des Events
@@ -330,15 +302,6 @@ while True:
 
             else:
                  continue
-            
-        z = get_gyro("gyro")
-
-        if z < -90 or z > 90:
-            turns += 1
-            reset_gyro()
-
-        if turns >= 13:
-            break
 
         status("running")
         img = take_photo_fast()
@@ -348,13 +311,28 @@ while True:
         if prev_img is None or prev_img.shape != img.shape:
             prev_img = img.copy()
         else:
-            #drive backward if no movement is detected
             diff = np.abs(img.astype(np.int16) - prev_img.astype(np.int16))
             movement = np.mean(diff)
             num_changed_pixels = np.sum(diff > threshold)
             #print(num_changed_pixels)
             if num_changed_pixels < pixel_threshold: #⚠️ parameter evtl anpassen
                 status("error")
+                print("keine Bewegung erkannt")
+                z = get_gyro("gyro")
+                if clockwise:
+                    supposed_z = turns*counter_degrees
+                else:
+                    supposed_z = turns*clock_degrees
+                steering = z - supposed_z
+                if z-supposed_z < 0:
+                    steering = 50 - steering
+                else:
+                    steering = 50 + steering
+                if steering < 20:
+                    steering = 20
+                if steering > 80:
+                    steering = 80
+                #print("steering", steering)
                 tof = get_tof()
                 if tof[0]>tof[1] or tof[1] > 8000:
                     print
@@ -364,57 +342,16 @@ while True:
                     #wir stoßen links an
                     servo(35)
                 
-                print("keine Bewegung erkannt")
                 motor(speed=basic_speed*-2)
-                time.sleep(0.8)
+                time.sleep(1)
                 motor(speed=0)
                 servo(50)
-                motor(speed=basic_speed*-2)
-                time.sleep(0.7)
+                motor(speed=basic_speed)
+                time.sleep(1)
                 motor(speed=0)
                 img = take_photo_fast()
+
             prev_img = img.copy()
-
-        gyro = get_gyro("gyro")
-        tof = list(get_tof())
-        image = Image.fromarray(img)
-        image = crop_image(image)
-        image = transforms.Resize((128, 128))(image) #might change size
-        image = transforms.ToTensor()(image)
-        image = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(image)
-
-        gyro = torch.tensor([
-            gyro
-        ], dtype=torch.float32)
-
-        tof = torch.tensor([
-            tof[0],
-            tof[1]
-        ], dtype=torch.float32)
-
-        gyro_expanded = gyro.view(1, 1, 1).expand(1, 128, 128)
-        tof_expanded = tof.view(2, 1, 1).expand(2, 128, 128)
-        combined_input = torch.cat((image, tof_expanded, gyro_expanded), dim=0)
-        #combined_input = torch.cat((image, tof_expanded), dim=0)
-        steering = predict(combined_input)
-        
-        if steering < 20 or steering > 80:
-            raise ValueError("steering out of bounds")
-        else:
-            #if steering > 60:
-             #   turn()
-            #else:
-            servo(int(steering))
-
-        # Beispiel: Je größer der Unterschied von 50, desto höher der Speed-Zusatz.
-        divisor = 30.0  # Mit diesem Divisor bestimmst du, wie stark der Speed ansteigt
-        additional_speed = (abs(steering - 50) / divisor) * speed_boost
-        speed = basic_speed + additional_speed
-
-        motor(speed)
-
-        #debugging:
-        print(f"predicted angle: {steering}, speed: {speed}, tof: {tof}")
         
     
     except KeyboardInterrupt:

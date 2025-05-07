@@ -33,7 +33,6 @@ def motor(speed: int):
     elif speed > 0: #vorwärts
         pi.write(motor1, 1)
         pi.write(motor2, 0)
-
     pi.set_PWM_dutycycle(motor_speed, speed)
 
     

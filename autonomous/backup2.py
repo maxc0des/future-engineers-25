@@ -12,21 +12,24 @@ button_pressed_event = threading.Event()
 
 #defining speed presets
 basic_speed = 90
-speed_boost = 60
+speed_boost = 85
 
 #define other const
 debounce_time_us = 20000
 turns = 1
 threshold = 20
 pixel_threshold = 80
-base_delay = 0.5
+base_delay = 0.8
 
-t = 0.8
+pfuschvor = 0.1
+pfuschback = -0.1
+
+t = 0.9
 
 BUTTON_PIN = 12
 
 counter_degrees = 85
-clock_degrees = 108
+clock_degrees = 100
 
 prev_img = None
 clockwise = False
@@ -69,6 +72,8 @@ def turn():
             tendency[0]="backward"
         print(tendency[1])
         tendency[1]=(tendency[1]*3)+1
+    #if tendency[0]=="backward":
+    #    tendency[1] -= int(tendency[1])-0.2
     print(l)
     print(r)
 
@@ -99,15 +104,16 @@ def turn():
                 if remaining_angle > 0:
                     # Berechne den Speed mit Hilfe des Absolutwertes und setze den Offset
                     speed = (abs(remaining_angle) / abs(needed_angle + 0.1)) * speed_boost + basic_speed
+                    speed += pfuschvor
             else:
                 steering = 50 - steering
                 if remaining_angle > 0:
                     # Rückwärtsbewegung: Speed negativ
                     speed = -((abs(remaining_angle) / abs(needed_angle + 0.1)) * speed_boost + basic_speed)
+                    speed += pfuschback
             print("steering", steering)
             print("speed:", speed)
             servo(steering)
-            motor(speed)
             if (forward and tendency[0] == "forward") or (not forward and tendency[0] == "backward"):
                 time.sleep(base_delay * tendency[1])
             else:
@@ -136,10 +142,12 @@ def turn():
                 steering = 50 - steering
                 if remaining_angle > 0:
                     speed = (abs(remaining_angle) / abs(needed_angle + 0.1)) * speed_boost + 100
+                    speed += pfuschvor
             else:
                 steering += 50
                 if remaining_angle > 0:
                     speed = -((abs(remaining_angle) / abs(needed_angle + 0.1)) * speed_boost + 100)
+                    speed += pfuschback
             print("steering", steering)
             servo(steering)
             motor(speed)

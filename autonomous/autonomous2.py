@@ -14,8 +14,8 @@ from motor import servo, motor, setup, cleanup
 
 #define the paths
 model_path = "v1.pth"
-counterclock_model = "counterclockwise/counter2.pth" #model for going clockwise
-clock_model = "clockwise/clock2.pth" #model for going counterclockwise
+counterclock_model = "counterclockwise/counter_final.pth" #model for going clockwise
+clock_model = "clockwise/clock_finalfinal.pth" #model for going counterclockwise
 redclock_model = "clockwise/clock2.pth" #model for going clockwise on red
 redcounter_model = "v1.pth" #model for going counterclockwise on red
 greenclock_model = "clockwise/clock2.pth" #model for going clockwise on green
@@ -201,12 +201,12 @@ def status(status: str):
         pi.write(17, 0)
     elif status == "setup":
         pi.write(22, 0)
-        pi.write(27, 1)
-        pi.write(17, 0)
+        pi.write(17, 1)
+        pi.write(27, 0)
     elif status == "error":
         pi.write(22, 0)
-        pi.write(27, 0)
-        pi.write(17, 1)
+        pi.write(17, 0)
+        pi.write(27, 1)
     else:
         pi.write(22, 0)
         pi.write(27, 0)
@@ -230,6 +230,7 @@ def start_sequence():
     while True:
         try:
             tof = list(get_tof())
+            print("setup tof", tof)
         except OSError:
             tof = [0, 0]
         if tof[0] > 800:
@@ -366,11 +367,11 @@ while True:
                 
                 print("keine Bewegung erkannt")
                 motor(speed=basic_speed*-2)
-                time.sleep(0.8)
+                time.sleep(0.45)
                 motor(speed=0)
                 servo(50)
                 motor(speed=basic_speed*-2)
-                time.sleep(0.7)
+                time.sleep(0.3)
                 motor(speed=0)
                 img = take_photo_fast()
             prev_img = img.copy()
@@ -415,6 +416,7 @@ while True:
 
         #debugging:
         print(f"predicted angle: {steering}, speed: {speed}, tof: {tof}")
+        time.sleep(0.1)
         
     
     except KeyboardInterrupt:
@@ -423,7 +425,7 @@ while True:
     except Exception as e:
         print(f"weewoo {e}")
         status("error")
-        time.sleep(0.5)
+        #time.sleep(0.5)
         continue
 
 status("off")

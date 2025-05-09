@@ -268,8 +268,50 @@ def initialize_sensors():
 
     return sensor1, sensor2, picam, z_offset, last_time
 
+def initialize_sensor():
+    global xshut0, xshut1
+    with open("config.json", "r") as file:
+        data = json.load(file)
+    xshut0 = int(data["sensor"]["xshut0"])
+    xshut1 = int(data["sensor"]["xshut1"])
+    xshut2 = int(data["sensor"]["xshut2"])
+    #check if libary is running
+    if not pi.connected:
+        print("Fehler: pigpio-Daemon läuft nicht!")
+        exit()
+    #change the i2c adresse of the sensors so we can acces the seperatly
+    pi.write(xshut0, 0)
+    pi.write(xshut1, 0)
+    pi.write(xshut2, 0)
+    time.sleep(0.1)
+    pi.write(xshut0, 1)
+    time.sleep(0.5)
+    sensor1 = adafruit_vl53l0x.VL53L0X(i2c)
+    sensor1.set_address(0x30)
+    pi.write(xshut1, 1)
+    time.sleep(0.5)
+    sensor2 = adafruit_vl53l0x.VL53L0X(i2c)
+    sensor2.set_address(0x31)
+    time.sleep(0.5)
+    sensor3 = adafruit_vl53l0x.VL53L0X(i2c)
+    sensor3.set_address(0x32)
+
+    offset = []
+    for i in range(10):
+        gyro_data = mpu.get_gyro_data()
+        offset.append(gyro_data['z'])
+        time.sleep(0.2)
+    z_offset = np.mean(offset)
+    last_time = time.time()
+    thread = threading.Thread(target=gyro_thread)
+    thread.daemon = True  # Damit der Thread im Hintergrund läuft
+    thread.start()
+
+    return sensor1, sensor2, sensor3, z_offset, last_time
+
 #initialize sensors
-tof_sensor1, tof_sensor2, picam, z_offset, last_time = initialize_sensors()
+#tof_sensor1, tof_sensor2, picam, z_offset, last_time = initialize_sensors()
+tof_sensor1, tof_sensor2, tof_sensor3, z_offset, last_time = initialize_sensor()
 
 #get the distances
 def get_tof():
@@ -277,6 +319,13 @@ def get_tof():
         tof_sensor1.range, tof_sensor2.range
     ]
     return sensor_data
+
+def get_tof2():
+    sensor_data = [
+        tof_sensor1.range, tof_sensor2.range, tof_sensor3.range
+    ]
+    return sensor_data
+
 
 #take the photo and return the path
 def take_photo(filepath: str, index: int):

@@ -253,7 +253,7 @@ def initialize_sensors():
     config = picam.create_still_configuration()
     picam.configure(config)
     picam.start()
-    time.sleep(5)
+    time.sleep(8)
     
     offset = []
     for i in range(10):

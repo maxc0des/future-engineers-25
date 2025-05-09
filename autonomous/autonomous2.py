@@ -14,7 +14,7 @@ from motor import servo, motor, setup, cleanup
 
 #define the paths
 model_path = "v1.pth"
-counterclock_model = "counterclockwise/counter_final.pth" #model for going clockwise
+counterclock_model = "counterclockwise/counter_final2.pth" #model for going clockwise
 clock_model = "clockwise/clock_finalfinal.pth" #model for going counterclockwise
 redclock_model = "clockwise/clock2.pth" #model for going clockwise on red
 redcounter_model = "v1.pth" #model for going counterclockwise on red
@@ -25,8 +25,8 @@ greencounter_model = "v1.pth" #model for going counterclockwise on green
 button_pressed_event = threading.Event()
 
 #defining speed presets
-basic_speed = 80
-speed_boost = 70
+basic_speed = 85
+speed_boost = 80
 
 #define other const
 debounce_time_us = 20000
@@ -227,6 +227,7 @@ def predict(combined_input):
 def start_sequence():
     i = 0
     servo(50)
+    motor(190)
     while True:
         try:
             tof = list(get_tof())
@@ -358,11 +359,10 @@ while True:
                 status("error")
                 tof = get_tof()
                 if tof[0]>tof[1] or tof[1] > 8000:
-                    print
-                    #wir stoßen rechts an
+                    print("wir stoßen rechts an")
                     servo(65)
                 elif tof[1]>tof[0] or tof[0] > 8000:
-                    #wir stoßen links an
+                    print("wir stoßen links an")
                     servo(35)
                 
                 print("keine Bewegung erkannt")

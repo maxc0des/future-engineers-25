@@ -1,3 +1,4 @@
+#data preparation before the training
 import os
 import pandas as pd
 import cv2
@@ -8,8 +9,8 @@ from tqdm import tqdm
 # Change the parameters here:
 
 data_filters = []#["steering", 80, "<"]
-picture_adjustments = [["brightness", 60, 50]]  # feature, value < 255 (max), iterations
-validation = 5
+picture_adjustments = [["brightness", 60, 200]]  # feature, value < 255 (max), iterations
+validation = 4
 #test = 0
 #===================================
 
@@ -119,8 +120,9 @@ if __name__ == "__main__":
         #adjust_picture("yuv", 0, img_path)
         if remove_nan(path=img_path, index=i) is not None:
             nan_rows.append(i)
-        os.rename(img_path, f"images/{img_path}")
-        crop_image(img_path)
+        else:
+            crop_image(img_path)
+            os.rename(img_path, f"images/{img_path}")
     df = df.drop(nan_rows).reset_index(drop=True)
     print("Finished adjusting pictures.")
     df = df.sample(frac=1).reset_index(drop=True)

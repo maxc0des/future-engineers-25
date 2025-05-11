@@ -1,3 +1,4 @@
+#training script for the basic neural network (without integration of gyro data)
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
